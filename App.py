@@ -1,22 +1,35 @@
-from source_app.utils import *
+import sys
+import traceback
+from datetime import datetime, timezone, timedelta
+import webbrowser
+from typing import Dict
+
+from PyQt6.QtWidgets import QApplication, QWidget, QPushButton, QLineEdit, QLabel, QMessageBox, QHBoxLayout, QVBoxLayout, QComboBox, QStyleFactory
+from PyQt6.QtGui import QIcon, QPixmap, QFont, QPainter, QFontDatabase, QRegularExpressionValidator
+from PyQt6.QtCore import Qt, QTimer, QThread, QRegularExpression, pyqtSlot
+
+from source_app.data import GameMode, BotConfig, TeamSelection, FONT, APP_DIR, WORDLESS, setup_logging, log_to_csv
 from source_app.settings_manager import SettingsManager
 from source_app.widget import SelectizeWidget, IntField, AllIntField
 from source_app.button import CustomButton
+from source_app.scrollable_wrapper import ScrollableMyApp
 from source_app.run import VersionChecker, BotWorker
-from source_app.check_interception import check_windows
+
+from source.data.default_teams import TEAMS, HARD
+from source.data.packs_data import HARD_BANNED, HARD_FLOORS, HARD_UNIQUE, FLOORS, FLOORS_UNIQUE, BANNED
+from source.engine import BotEvents, PathResolver
+
+
+img = PathResolver(APP_DIR)
 
 
 class MyApp(QWidget):
     # TODO: I need to decompose this shitty class a bit
     def __init__(self):
         super().__init__()
-
-        if not check_windows():
-            raise SystemExit(0)
-
         # params
         self.hard = False
-        self.count = 0
+        self.count = 1
         self.team = 0
         self.sinners = []
 
@@ -29,8 +42,8 @@ class MyApp(QWidget):
         self.team_lux = self._day()
         self.team_lux_buttons = [self.team_lux, 3 + self._day(sin=True)]
         self.keywordless = {}
-        self.thread = None
-        self.worker = None
+
+        self.settings = None
 
         self.load_settings()
         self._init_ui()
@@ -65,9 +78,9 @@ class MyApp(QWidget):
     ### UI
     def _init_ui(self):
         """Initialize main window settings"""
-        self.background = QPixmap(Bot.APP_PTH["UI"])
+        self.background = QPixmap(img.get("UI"))
         
-        font_id = QFontDatabase.addApplicationFont(Bot.APP_PTH["ExcelsiorSans"])
+        font_id = QFontDatabase.addApplicationFont(FONT)
         if font_id != -1: self.family = QFontDatabase.applicationFontFamilies(font_id)[0]
         self.inputField = AllIntField(self)
         self.inputField.setFont(QFont(self.family, 30))
@@ -75,13 +88,13 @@ class MyApp(QWidget):
         self.inputField.setText("3")
 
         self.overlay = QLabel(self)
-        overlay_pixmap = QPixmap(Bot.APP_PTH['frames'])
+        overlay_pixmap = QPixmap(img.get('frames'))
         self.overlay.setPixmap(overlay_pixmap)
         self.overlay.setGeometry(48, 444, 601, 296)
         self.overlay.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
 
         self.guide = QLabel(self)
-        self.guide.setPixmap(QPixmap(Bot.APP_PTH['guide']))
+        self.guide.setPixmap(QPixmap(img.get('guide')))
         self.guide.setGeometry(0, 0, 700, 785)
         self.guide.hide()
         self.guide_close_btn = QPushButton(self.guide)
@@ -90,20 +103,20 @@ class MyApp(QWidget):
         self.guide_close_btn.setStyleSheet('background: transparent; border: none;')
 
         self.progress = QLabel(self)
-        self.progress.setPixmap(QPixmap(Bot.APP_PTH['progress']))
+        self.progress.setPixmap(QPixmap(img.get('progress')))
         self.progress.setGeometry(0, 0, 700, 785)
         self.progress.hide()
 
         self.run = QLabel(self.progress)
-        self.run.setPixmap(QPixmap(Bot.APP_PTH['run']))
+        self.run.setPixmap(QPixmap(img.get('run')))
         self.run.hide()
 
         self.rerun = QLabel(self.progress)
-        self.rerun.setPixmap(QPixmap(Bot.APP_PTH['rerun']))
+        self.rerun.setPixmap(QPixmap(img.get('rerun')))
         self.rerun.hide()
 
         self.pause = QLabel(self.progress)
-        self.pause.setPixmap(QPixmap(Bot.APP_PTH['pause']))
+        self.pause.setPixmap(QPixmap(img.get('pause')))
         self.pause.hide()
         self.stop = QPushButton(self.pause)
         self.stop.setGeometry(358, 382, 73, 69)
@@ -115,7 +128,7 @@ class MyApp(QWidget):
         self.play.setStyleSheet('background: transparent; border: none;')
 
         self.warn = QLabel(self.progress)
-        self.warn.setPixmap(QPixmap(Bot.APP_PTH['warning']))
+        self.warn.setPixmap(QPixmap(img.get('warning')))
         self.warn.hide()
 
         self.warn_txt = QLabel(self.warn)
@@ -129,12 +142,12 @@ class MyApp(QWidget):
         self.config_widgets = []
 
         self.config = QLabel(self)
-        self.config.setPixmap(QPixmap(Bot.APP_PTH["config"]))
+        self.config.setPixmap(QPixmap(img.get("config")))
         self.config.setGeometry(0, 92, 700, 693)
         self.config.hide()
 
         self.priority_team = QLabel(self.config)
-        self.priority_team.setPixmap(QPixmap(Bot.APP_PTH[f'team{self.selected_affinity[self.team][0]}']))
+        self.priority_team.setPixmap(QPixmap(img.get(f'team{self.selected_affinity[self.team][0]}')))
         self.priority_team.setGeometry(38, 121, 301, 247)
         self.priority_team.show()
 
@@ -155,23 +168,23 @@ class MyApp(QWidget):
         self.hard_confs = []
         for key, geom in hard_conf_data:
             lbl = QLabel(self.config)
-            lbl.setPixmap(QPixmap(Bot.APP_PTH[key]))
+            lbl.setPixmap(QPixmap(img.get(key)))
             lbl.setGeometry(*geom)
             lbl.hide()
             self.hard_confs.append(lbl)
 
         self.ego_panel = QLabel(self.config)
-        self.ego_panel.setPixmap(QPixmap(Bot.APP_PTH["config_panel"]))
+        self.ego_panel.setPixmap(QPixmap(img.get("config_panel")))
         self.ego_panel.setGeometry(0, 87, 700, 605)
         self.ego_panel.hide()
 
         self.grace_panel = QLabel(self.config)
-        self.grace_panel.setPixmap(QPixmap(Bot.APP_PTH["grace_expand"]))
+        self.grace_panel.setPixmap(QPixmap(img.get("grace_expand")))
         self.grace_panel.setGeometry(0, 405, 700, 123)
         self.grace_panel.hide()
 
         self.lux = QLabel(self)
-        self.lux.setPixmap(QPixmap(Bot.APP_PTH["Lux"]))
+        self.lux.setPixmap(QPixmap(img.get("Lux")))
         self.lux.setGeometry(0, 92, 700, 295)
         self.lux.hide()
 
@@ -396,25 +409,25 @@ class MyApp(QWidget):
     def get_priority(self, team):
         affinity = self.selected_affinity[team][0]
         if self.hard:
-            team_data = Bot.TEAMS[list(Bot.TEAMS.keys())[affinity]]
+            team_data = TEAMS[list(TEAMS.keys())[affinity]]
         else:
-            team_data = Bot.HARD[list(Bot.HARD.keys())[affinity]]
+            team_data = HARD[list(HARD.keys())[affinity]]
         return team_data.get(f"floors", [])
     
     def get_all(self):
         if self.hard:
-            return Bot.HARD_UNIQUE
+            return HARD_UNIQUE
         else:
-            return Bot.FLOORS_UNIQUE
+            return FLOORS_UNIQUE
         
     def check_floor(self, name, floor):
         if 11 > floor > 5: floor = 5
         elif floor > 10:   floor = 15
 
         if self.hard: 
-            floor_dict = Bot.HARD_FLOORS
+            floor_dict = HARD_FLOORS
         else: 
-            floor_dict = Bot.FLOORS
+            floor_dict = FLOORS
 
         if name in floor_dict[floor]:
             return True
@@ -422,9 +435,9 @@ class MyApp(QWidget):
 
     def get_avoid(self):
         if self.hard:
-            return Bot.HARD_BANNED
+            return HARD_BANNED
         else:
-            return Bot.BANNED
+            return BANNED
 
     def _get_button_lux(self):
         return [
@@ -433,7 +446,7 @@ class MyApp(QWidget):
                 'checkable': True,
                 'checked': i == self._day(),
                 'click_handler': self.activate_lux_teams,
-                'icon': Bot.APP_PTH['affinity']
+                'icon': img.get('affinity')
             }) for i in range(3)
         ] + [
             (f'team_lux{i + 3}', {
@@ -441,7 +454,7 @@ class MyApp(QWidget):
                 'checkable': True,
                 'checked': i == self._day(sin=True),
                 'click_handler': self.activate_lux_teams,
-                'icon': Bot.APP_PTH['affinity_support']
+                'icon': img.get('affinity_support')
             }) for i in range(7)
         ]
     
@@ -453,7 +466,7 @@ class MyApp(QWidget):
                 'checked': i == 0,
                 'id': i,
                 'click_handler': self.activate_keyword_button,
-                'icon': Bot.APP_PTH['affinity'],
+                'icon': img.get('affinity'),
             }) for i in range(10)
         ]
     
@@ -462,7 +475,7 @@ class MyApp(QWidget):
             (f'icon{i}', {
                 'geometry': (221 + 63*i + (i)//2 - i//4, 242, 64, 68),
                 'id': i,
-                'icon': Bot.APP_PTH[f't{i}'],
+                'icon': img.get(f't{i}'),
             }) for i in range(7)
         ]
 
@@ -473,7 +486,7 @@ class MyApp(QWidget):
                 'checkable': True,
                 'checked': i == 0,
                 'click_handler': self.activate_permanent_button,
-                'icon': Bot.APP_PTH['affinity'],
+                'icon': img.get('affinity'),
             }) for i in range(7)
         ]
     
@@ -484,8 +497,8 @@ class MyApp(QWidget):
                 'checkable': True,
                 'checked': i == 1 or i == 4,
                 'click_handler': self.update_button_icons,
-                'icon': Bot.APP_PTH[f'sel{"1"*(i == 0)}_extra'],
-                'glow': Bot.APP_PTH['sel_extra'],
+                'icon': img.get(f'sel{"1"*(i == 0)}_extra'),
+                'glow': img.get('sel_extra'),
             }) for i in range(7)
         ] + [
             (f'on{i+7}', {
@@ -493,7 +506,7 @@ class MyApp(QWidget):
                 'checkable': True,
                 'checked': i != 1,
                 'click_handler': self.update_button_icons,
-                'icon': Bot.APP_PTH['sel_lux']
+                'icon': img.get('sel_lux')
             }) for i in range(5)
         ]
     
@@ -506,7 +519,7 @@ class MyApp(QWidget):
                 'id': i,
                 'state': 1,
                 'click_handler': self.update_buff_icons,
-                'icon': Bot.APP_PTH['affinity_support']
+                'icon': img.get('affinity_support')
             }) for i in range(4)
         ]
     
@@ -519,7 +532,7 @@ class MyApp(QWidget):
                 'id': i,
                 'state': 0,
                 'click_handler': self.update_buff_icons,
-                'icon': Bot.APP_PTH['affinity_support']
+                'icon': img.get('affinity_support')
             }) for i in range(4, 10)
         ]
     
@@ -554,7 +567,7 @@ class MyApp(QWidget):
                 'id': i,
                 'state': 0,
                 'click_handler': self.update_ego_icons,
-                'icon': Bot.APP_PTH['select_gift1']
+                'icon': img.get('select_gift1')
             }) for i in range(24)
         ]
 
@@ -563,66 +576,66 @@ class MyApp(QWidget):
         self.buttons = {
             'update': CustomButton(self, {
                 'geometry': (202, 24, 298, 53),
-                'click_handler': lambda: webbrowser.open('https://github.com/Walpth/Charge-Grinder/releases/latest'),
+                'click_handler': lambda: webbrowser.open('https://github.com/AlexWalp/Mirror-Dungeon-Bot/releases/latest'),
                 'checkable': True,
                 'checked': True,
-                'icon': Bot.APP_PTH['update'],
-                'glow': Bot.APP_PTH['glow_update'],
+                'icon': img.get('update'),
+                'glow': img.get('glow_update'),
                 'filter': False
             }),
 
             'lux': CustomButton(self, {
                 'geometry': (475, 95, 196, 57),
                 'click_handler': self.set_lux,
-                'glow': Bot.APP_PTH['luxbtn']
+                'glow': img.get('luxbtn')
             }),
 
             'save': CustomButton(self, {
                 'geometry': (90, 394, 125, 43),
                 'click_handler': self.save,
-                'glow': Bot.APP_PTH['save']
+                'glow': img.get('save')
             }),
 
             'reset': CustomButton(self, {
                 'geometry': (481, 394, 125, 43),
                 'click_handler': self.reset,
-                'glow': Bot.APP_PTH['clear']
+                'glow': img.get('clear')
             }),
 
             'MD': CustomButton(self.lux, {
                 'geometry': (475, 3, 196, 57),
                 'click_handler': self.lux_hide,
-                'glow': Bot.APP_PTH['md']
+                'glow': img.get('md')
             }),
 
             'config': CustomButton(self, {
                 'geometry': (209, 164, 217, 55),
                 'click_handler': lambda: (self.config.show(), self.config.raise_()),
-                'glow': Bot.APP_PTH['settings']
+                'glow': img.get('settings')
             }),
 
             'save_config': CustomButton(self.config, {
                 'geometry': (265, 13, 254, 63),
                 'click_handler': self.save_config,
-                'glow': Bot.APP_PTH['saveconf']
+                'glow': img.get('saveconf')
             }),
 
             'del_config': CustomButton(self.config, {
                 'geometry': (530, 13, 150, 63),
                 'click_handler': lambda: self.reset_to_defaults(self.team),
-                'glow': Bot.APP_PTH['del']
+                'glow': img.get('del')
             }),
 
             'ego_panel_open': CustomButton(self.config, {
                 'geometry': (515, 611, 154, 49),
                 'click_handler': self.toggle_ego_panel,
-                'glow': Bot.APP_PTH['sel_extra']
+                'glow': img.get('sel_extra')
             }),
 
             'ego_panel_close': CustomButton(self.ego_panel, {
                 'geometry': (515, 524, 154, 49),
                 'click_handler': self.toggle_ego_panel,
-                'glow': Bot.APP_PTH['sel_extra']
+                'glow': img.get('sel_extra')
             }),
 
             'grace_panel_open': CustomButton(self.config, {
@@ -640,7 +653,7 @@ class MyApp(QWidget):
                 'checkable': True,
                 'checked': False,
                 'click_handler': self.set_hardmode,
-                'icon': Bot.APP_PTH['hard']
+                'icon': img.get('hard')
             }),
 
             'log': CustomButton(self, {
@@ -648,31 +661,31 @@ class MyApp(QWidget):
                 'checkable': True,
                 'checked': True,
                 'click_handler': self.update_button_icons,
-                'icon': Bot.APP_PTH['log_on']
+                'icon': img.get('log_on')
             }),
             'csv': CustomButton(self, {
                 'geometry': (523, 35, 41, 28),
                 'click_handler': self.ask_csv,
-                'glow': Bot.APP_PTH['csv']
+                'glow': img.get('csv')
             }),
 
             'guide_icon': CustomButton(self, {
                 'geometry': (45, 25, 135, 49),
                 'click_handler': self.show_guide,
-                'glow': Bot.APP_PTH['guide_icon'],
+                'glow': img.get('guide_icon'),
             }),
 
             'start': CustomButton(self, {
                 'geometry': (453, 165, 216, 65),
                 'click_handler': self.start,
-                'glow': Bot.APP_PTH['start'],
+                'glow': img.get('start'),
             }),
 
             'githubButton': CustomButton(self, {
                 'geometry': (615, 33, 35, 35),
-                'glow': Bot.APP_PTH['me'],
+                'glow': img.get('me'),
                 'glow_geometry': (610, 26, 47, 47),
-                'click_handler': lambda: webbrowser.open('https://github.com/Walpth/Charge-Grinder')
+                'click_handler': lambda: webbrowser.open('https://github.com/AlexWalp/Mirror-Dungeon-Bot')
             })
         }
         all_buttons = self._get_keyword_icon() + self._get_button_affinity() + self._get_button_selected() + self._get_button_keyword()
@@ -698,7 +711,7 @@ class MyApp(QWidget):
 
         self.set_team()
         self.set_extra()
-        self.priority_team.setPixmap(QPixmap(Bot.APP_PTH[f'team{self.selected_affinity[self.team][0]}']))
+        self.priority_team.setPixmap(QPixmap(img.get(f'team{self.selected_affinity[self.team][0]}')))
         self.set_priority()
 
         self.init_widgets()
@@ -718,13 +731,13 @@ class MyApp(QWidget):
         self.team = state["7"]
         for i in range(7):
             is_selected, self.selected_affinity[i] = state[str(i)]
-            self.buttons[f"icon{i}"].setIcon(QIcon(Bot.APP_PTH[f"t{self.selected_affinity[i][0]}"]))
+            self.buttons[f"icon{i}"].setIcon(QIcon(img.get(f"t{self.selected_affinity[i][0]}")))
             if is_selected:
                 self.buttons[f"team{i}"].setChecked(True)
                 if i == self.team:
-                    self.buttons[f"team{i}"].setIcon(QIcon(Bot.APP_PTH["affinity"]))
+                    self.buttons[f"team{i}"].setIcon(QIcon(img.get("affinity")))
                 else:
-                    self.buttons[f"team{i}"].setIcon(QIcon(Bot.APP_PTH["affinity_support"]))
+                    self.buttons[f"team{i}"].setIcon(QIcon(img.get("affinity_support")))
             else:
                 self.buttons[f"team{i}"].setChecked(False)
                 self.buttons[f"team{i}"].setIcon(QIcon())
@@ -733,14 +746,14 @@ class MyApp(QWidget):
         state = self.sm.get_extra()
         if not state: return
 
-        self.inputField.setText(str(state[0]) if state[0] != -1 else "ALL")
+        self.inputField.setText(str(state[0]) if state[0] != 9999 else "ALL")
         self.exp.setText(str(state[1]))
         self.thd.setText(str(state[2]))
 
         for i in range(5):
             if state[i + 3]:
                 self.buttons[f"on{i + 7}"].setChecked(True)
-                self.buttons[f"on{i + 7}"].setIcon(QIcon(Bot.APP_PTH["sel_lux"]))
+                self.buttons[f"on{i + 7}"].setIcon(QIcon(img.get("sel_lux")))
             else:
                 self.buttons[f"on{i + 7}"].setChecked(False)
                 self.buttons[f"on{i + 7}"].setIcon(QIcon())
@@ -771,13 +784,13 @@ class MyApp(QWidget):
         if self.hard:
             on = [False, True, False, False, False, False, False]
             self.set_buttons_active(on + buff)
-            self.buttons['on0'].config['icon'] = Bot.APP_PTH['sel1_hard']
+            self.buttons['on0'].config['icon'] = img.get('sel1_hard')
             for lbl in self.hard_confs:
                 lbl.show()
         else:
             on = [False, True, False, False, True, False, False]
             self.set_buttons_active(on + buff)
-            self.buttons['on0'].config['icon'] = Bot.APP_PTH['sel1_extra']
+            self.buttons['on0'].config['icon'] = img.get('sel1_extra')
             for lbl in self.hard_confs:
                 lbl.hide()
         self.activate_ego_gifts(self.sm.get_config(7))
@@ -843,7 +856,7 @@ class MyApp(QWidget):
             frame = (10, 10, 43, 41)
             errors = list(filter(lambda i: not self.buttons[f'card{i}'].isChecked(), [i for i in range(1, 6)]))
             for i in errors:
-                self.buttons[f'card{i}'].set_glow_image(Bot.APP_PTH["warn_support"], frame)
+                self.buttons[f'card{i}'].set_glow_image(img.get("warn_support"), frame)
             CustomButton.glow_multiple([self.buttons[f'card{i}'] for i in errors])
             return
         
@@ -911,7 +924,7 @@ class MyApp(QWidget):
                 if icon_path:
                     button.setIcon(QIcon(icon_path))     
             elif int(state) > 1:
-                button.setIcon(QIcon(Bot.APP_PTH[f'grace{"+"*int(state - 1)}']))
+                button.setIcon(QIcon(img.get(f'grace{"+"*int(state - 1)}')))
             else:
                 button.setIcon(QIcon())
             button.setIconSize(button.size())
@@ -923,7 +936,7 @@ class MyApp(QWidget):
         # if not sm.is_version("3.0.0"): # reset old gift selection
         #     sm.save_config(7, {}, all=True)
         #     data = {}
-        #     sm.set_version(Bot.APP_VERSION)
+        #     sm.set_version(p.V)
         # if isinstance(data, list): # old format
         #     data = {}
         self.keywordless = {}
@@ -932,7 +945,7 @@ class MyApp(QWidget):
                 state = data[str(id)]
                 self.buttons[f'ego{id}'].config["state"] = state
                 self.buttons[f'ego{id}'].setChecked(True)
-                self.buttons[f'ego{id}'].setIcon(QIcon(Bot.APP_PTH[f'select_gift{state}']))
+                self.buttons[f'ego{id}'].setIcon(QIcon(img.get(f'select_gift{state}')))
                 self.keywordless[id] = state
             else:
                 if self.buttons[f'ego{id}'].isChecked():
@@ -966,13 +979,13 @@ class MyApp(QWidget):
                 self.team_lux_buttons[button_group] = None
 
                 self.team_lux = self.team_lux_buttons[1 - button_group]
-                self.buttons[f"team_lux{self.team_lux}"].setIcon(QIcon(Bot.APP_PTH['affinity']))
+                self.buttons[f"team_lux{self.team_lux}"].setIcon(QIcon(img.get('affinity')))
             else:
                 self.buttons[f"team_lux{id}"].setChecked(True)
         elif self.team_lux not in ranges[button_group]: # different group is clicked
-            self.buttons[f"team_lux{self.team_lux}"].setIcon(QIcon(Bot.APP_PTH['affinity_support']))
+            self.buttons[f"team_lux{self.team_lux}"].setIcon(QIcon(img.get('affinity_support')))
             self.team_lux = id
-            self.buttons[f"team_lux{id}"].setIcon(QIcon(Bot.APP_PTH['affinity']))
+            self.buttons[f"team_lux{id}"].setIcon(QIcon(img.get('affinity')))
             if self.team_lux_buttons[button_group] is not None:
                 if self.team_lux_buttons[button_group] == id:
                     self.buttons[f"team_lux{id}"].setChecked(True)
@@ -986,7 +999,7 @@ class MyApp(QWidget):
 
             self.team_lux = id
             self.team_lux_buttons[button_group] = id
-            self.buttons[f"team_lux{id}"].setIcon(QIcon(Bot.APP_PTH['affinity']))
+            self.buttons[f"team_lux{id}"].setIcon(QIcon(img.get('affinity')))
         # print("after")
         # print(self.team_lux)
         # print(self.team_lux_buttons)
@@ -1003,8 +1016,8 @@ class MyApp(QWidget):
         null_visual_state = sender.icon().isNull()
 
         if null_visual_state:
-            sender.setIcon(QIcon(Bot.APP_PTH['affinity']))
-            self.buttons[f"team{self.team}"].setIcon(QIcon(Bot.APP_PTH['affinity_support']))
+            sender.setIcon(QIcon(img.get('affinity')))
+            self.buttons[f"team{self.team}"].setIcon(QIcon(img.get('affinity_support')))
             for i in range(7):
                 if self.buttons[f"team{i}"] == sender:
                     self.team = i
@@ -1015,7 +1028,7 @@ class MyApp(QWidget):
             else:
                 sender.setChecked(True)
 
-        self.priority_team.setPixmap(QPixmap(Bot.APP_PTH[f'team{self.selected_affinity[self.team][0]}']))
+        self.priority_team.setPixmap(QPixmap(img.get(f'team{self.selected_affinity[self.team][0]}')))
         self.reset_to_defaults(self.team, default=False)
         self.set_selected_buttons(self.sinner_selections[self.team])
         self.set_affinity_buttons(self.selected_affinity[self.team])
@@ -1048,9 +1061,9 @@ class MyApp(QWidget):
 
         for index, button in enumerate(selected_affinity_buttons):
             if index == 0:
-                icon_path = Bot.APP_PTH[f'affinity']
+                icon_path = img.get('affinity')
             else:
-                icon_path = Bot.APP_PTH[f'aff{index}']
+                icon_path = img.get(f'aff{index}')
             button.setIcon(QIcon(icon_path))
             button.setIconSize(button.size())
 
@@ -1061,8 +1074,8 @@ class MyApp(QWidget):
         self.selected_affinity[self.team] = [button.config.get('id') for button in selected_affinity_buttons]
 
     def change_icon(self, id):
-        self.buttons[f'icon{self.team}'].setIcon(QIcon(Bot.APP_PTH[f"t{id}"]))
-        self.priority_team.setPixmap(QPixmap(Bot.APP_PTH[f'team{id}']))
+        self.buttons[f'icon{self.team}'].setIcon(QIcon(img.get(f"t{id}")))
+        self.priority_team.setPixmap(QPixmap(img.get(f'team{id}')))
 
     def update_button_icons(self):
         sender = self.sender()
@@ -1094,7 +1107,7 @@ class MyApp(QWidget):
         if id is None or state is None: 
             return
         
-        states = [j for j in range(Bot.WORDLESS[id]['state'] + 1)]
+        states = [j for j in range(WORDLESS[id]['state'] + 1)]
         i = states.index(state)
         next_state = states[(i + 1) % len(states)]
 
@@ -1103,7 +1116,7 @@ class MyApp(QWidget):
             sender.setIcon(QIcon())
         else:
             self.keywordless[id] = next_state
-            sender.setIcon(QIcon(Bot.APP_PTH[f'select_gift{next_state}']))
+            sender.setIcon(QIcon(img.get(f'select_gift{next_state}')))
             if next_state != 1:
                 sender.setChecked(True)
         sender.config["state"] = next_state
@@ -1125,9 +1138,9 @@ class MyApp(QWidget):
         else:
             if next_state != 1:
                 sender.setChecked(True)
-                sender.setIcon(QIcon(Bot.APP_PTH[f'grace{"+"*(next_state - 1)}']))
+                sender.setIcon(QIcon(img.get(f'grace{"+"*(next_state - 1)}')))
             else:
-                sender.setIcon(QIcon(Bot.APP_PTH['affinity_support']))
+                sender.setIcon(QIcon(img.get('affinity_support')))
         sender.config["state"] = next_state
 
     def update_card_buttons(self):
@@ -1147,7 +1160,7 @@ class MyApp(QWidget):
                 self.selected_card_order.remove(sender)
 
         for index, button in enumerate(self.selected_card_order):
-            icon_path = Bot.APP_PTH[f'aff{index + 1}']
+            icon_path = img.get(f'aff{index + 1}')
             button.setIcon(QIcon(icon_path))
             button.setIconSize(button.size())
 
@@ -1172,7 +1185,7 @@ class MyApp(QWidget):
                 self.selected_button_order.remove(sender)
 
         for index, button in enumerate(self.selected_button_order):
-            icon_path = Bot.APP_PTH[f'sel{index + 1}']
+            icon_path = img.get(f'sel{index + 1}')
             button.setIcon(QIcon(icon_path))
             button.setIconSize(button.size())
 
@@ -1191,7 +1204,7 @@ class MyApp(QWidget):
                 button.setIcon(QIcon())
 
         for index, button in enumerate(self.selected_button_order):
-            icon_path = Bot.APP_PTH[f'sel{index + 1}']
+            icon_path = img.get(f'sel{index + 1}')
             button.setChecked(True)
             button.setIcon(QIcon(icon_path))
             button.setIconSize(button.size())
@@ -1207,9 +1220,9 @@ class MyApp(QWidget):
 
         for index, button in enumerate(selected_affinity_buttons):
             if index == 0:
-                icon_path = Bot.APP_PTH[f'affinity']
+                icon_path = img.get(f'affinity')
             else:
-                icon_path = Bot.APP_PTH[f'aff{index}']
+                icon_path = img.get(f'aff{index}')
             button.setChecked(True)
             button.setIcon(QIcon(icon_path))
             button.setIconSize(button.size())
@@ -1226,7 +1239,7 @@ class MyApp(QWidget):
                 button.setIcon(QIcon())
 
         for index, button in enumerate(self.selected_card_order):
-            icon_path = Bot.APP_PTH[f'aff{index + 1}']
+            icon_path = img.get(f'aff{index + 1}')
             button.setChecked(True)
             button.setIcon(QIcon(icon_path))
             button.setIconSize(button.size())
@@ -1238,7 +1251,6 @@ class MyApp(QWidget):
     def check_version(self):
         self.version_thread = VersionChecker()
         self.version_thread.updateAvailable.connect(self.on_version_checked)
-        self.version_thread.check()
 
     def on_version_checked(self, up_to_date):
         if not up_to_date:
@@ -1253,7 +1265,7 @@ class MyApp(QWidget):
     def check_sinners(self):
         errors = []
         for team in self.teams.keys():
-            if len(self.teams[team]["sinners"]) < 1:
+            if len(self.teams[team].sinners) < 1:
                 errors.append(team)
         
         if not errors: return True
@@ -1270,9 +1282,9 @@ class MyApp(QWidget):
         # set up glows
         for i in errors:
             if not self.is_lux and i == self.team or self.is_lux and i == self.team_lux:
-                self.buttons[f'team{suffix}{i}'].set_glow_image(Bot.APP_PTH[f"warn"], frame)
+                self.buttons[f'team{suffix}{i}'].set_glow_image(img.get(f"warn"), frame)
             else:
-                self.buttons[f'team{suffix}{i}'].set_glow_image(Bot.APP_PTH[f"warn_support"], frame)
+                self.buttons[f'team{suffix}{i}'].set_glow_image(img.get(f"warn_support"), frame)
 
         # play it
         CustomButton.glow_multiple(
@@ -1280,149 +1292,159 @@ class MyApp(QWidget):
         )
         return False
     
-    def get_params(self):
-        # logging
+    def _setup_logger(self) -> None:
         try:
             setup_logging(enable_logging=self.buttons['log'].isChecked())
         except PermissionError:
             print("No logging I guess")
             setup_logging(enable_logging=False)
 
-        # MD count
-        text = self.inputField.text()
-        if text != "ALL": self.count = int(text)
-        else: self.count = -1
+    def _parse_counts(self) -> tuple[int, int, int]:
+        md_text = self.inputField.text()
+        self.count = int(md_text) if md_text and md_text != "ALL" else 9999
+        
+        exp_text = self.exp.text()
+        self.count_exp = int(exp_text) if exp_text else 0
+        
+        thd_text = self.thd.text()
+        self.count_thd = int(thd_text) if thd_text else 0
+        
+        return self.count, self.count_exp, self.count_thd
 
-        # Lux count
-        text = self.exp.text()
-        if text: self.count_exp = int(text)
-        else: self.count_exp = 0
-        text = self.thd.text()
-        if text: self.count_thd = int(text)
-        else: self.count_thd = 0
+    def _get_team_selections(self) -> Dict[int, TeamSelection]:
+        self.update_sinners()
+        teams = {}
 
-        # selected teams
-        self.teams = dict()
         affinity_values = [self.selected_affinity[i][0] for i in range(7)]
         counts = [affinity_values[:i].count(x) for i, x in enumerate(affinity_values)]
         duplicates = {v for v in affinity_values if affinity_values.count(v) > 1}
 
-        self.update_sinners()
         if self.is_lux:
             self.is_proceed = self.buttons["on11"].isChecked()
             self.sinner_selections[self.team_lux + 7] = self.sinners
             for i in self.team_lux_buttons:
                 if i is not None:
-                    self.teams[i + 7] = {"sinners": self.sinner_selections[i + 7]}
+                    teams[i + 7] = TeamSelection(sinners=self.sinner_selections[i + 7])
+
         if not self.is_lux or self.is_proceed:
-            if not self.is_lux: self.sinner_selections[self.team] = self.sinners
+            if not self.is_lux: 
+                self.sinner_selections[self.team] = self.sinners
+                
             for index in range(7):
                 i = (self.team + index) % 7
                 affinity = self.selected_affinity[i][0]
+                
                 if self.buttons[f"team{i}"].isChecked():
                     priority, avoid, priority_f, avoid_f = self.get_packs(i)
-                    self.teams[i] = {
-                        "duplicates": affinity in duplicates,
-                        "affinity_idx": counts[i],
-                        "affinity": self.selected_affinity[i],
-                        "sinners": self.sinner_selections[i], 
-                        "priority": (priority, priority_f),
-                        "avoid": (avoid, priority_f, avoid_f)
-                    }               
-        
+                    teams[i] = TeamSelection(
+                        sinners=self.sinner_selections[i],
+                        duplicates=(affinity in duplicates),
+                        affinity_idx=counts[i],
+                        affinity=self.selected_affinity[i],
+                        priority=(priority, priority_f),
+                        avoid=(avoid, priority_f, avoid_f)
+                    )
+        return teams
 
-        self.settings = {
-            'bonus'      : self.buttons['on0'].isChecked() if not self.is_lux else self.buttons['on10'].isChecked(),
-            'restart'    : self.buttons['on1'].isChecked() if not self.is_lux else self.buttons['on7'].isChecked(),
-            'altf4'      : [self.buttons['on2'].isChecked(), self.buttons['on8'].isChecked()],
-            'enkephalin' : self.buttons['on3'].isChecked() if not self.is_lux else self.buttons['on9'].isChecked(),
-            'skip'       : self.buttons['on4'].isChecked(),
-            'wishmaking' : self.buttons['on5'].isChecked(),
-            'winrate'    : self.hard or self.buttons['on6'].isChecked(),
-            'infinity'   : self.hard and self.buttons['on6'].isChecked(),
-            'buff'       : [getattr(self.buttons[f'buff{i}'], 'config', {}).get('state', 0) for i in range(10)],
-            'card'       : self.get_cards(),
-            'keywordless': {Bot.WORDLESS[id]['name']: state for id, state in self.keywordless.items()}
-        }
+    def _get_difficulty(self) -> GameMode:
+        if self.hard and self.buttons['on6'].isChecked(): return GameMode.EXTREME
+        if self.hard: return GameMode.HARD
+        return GameMode.NORMAL
+    
+    def get_params(self) -> BotConfig:
+        self._setup_logger()
+        
+        md_count, exp_count, thd_count = self._parse_counts()
+        self.teams = self._get_team_selections()
+        
+        return BotConfig(
+            window_name="LimbusCompany",
+
+            md_run_count=md_count,
+            exp_lux_count=exp_count,
+            thread_lux_count=thd_count,
+            
+            teams_selections=self.teams,
+            
+            difficulty=self._get_difficulty(),
+            
+            bonus_charge=self.buttons['on10'].isChecked() if self.is_lux else self.buttons['on0'].isChecked(),
+            restart_run=self.buttons['on7'].isChecked() if self.is_lux else self.buttons['on1'].isChecked(),
+            altf4=self.buttons['on8'].isChecked() if self.is_lux else self.buttons['on2'].isChecked(),
+            convert_enkephalin=self.buttons['on9'].isChecked() if self.is_lux else self.buttons['on3'].isChecked(),
+            skip_secret_nodes=self.buttons['on4'].isChecked(),
+            shop_wishmaking=self.buttons['on5'].isChecked(),
+            chained_winrate=self.buttons['on6'].isChecked(),
+            
+            card_priority=self.get_cards(),
+            starting_graces=[getattr(self.buttons[f'buff{i}'], 'config', {}).get('state', 0) for i in range(10)],
+            keywordless_gifts={WORDLESS[uid]['name']: state for uid, state in self.keywordless.items()}
+        )
 
     def start(self):
-        if self.thread is not None and self.thread.isRunning():
-            return
-
-        self.get_params()
+        data = self.get_params()
         if not self.check_inputs() or not self.check_sinners():
             self.buttons['guide_icon'].trigger_glow_once()
             return
 
-        if self.buttons['update'].isVisible(): self.buttons['update'].pause_flickering()
+        if self.buttons['update'].isVisible():
+            self.buttons['update'].pause_flickering()
         self.save_affinity()
 
         self.progress.raise_()
         self.progress.show()
         self.run.show()
-        QApplication.processEvents()
 
-        p.stop_event.clear()
+        self.events = BotEvents()
+        
+        self.events.request_lux_hide.connect(self.lux_hide)
+        self.events.request_stop_ui.connect(self.stop_execution)
+        self.events.request_pause_ui.connect(self.to_pause)
+        self.events.warning_raised.connect(self.handle_bot_warning)
+        self.events.error_raised.connect(self.handle_bot_error)
 
         self.thread = QThread()
-        self.worker = BotWorker(
-            self.count,
-            self.count_exp,
-            self.count_thd,
-            self.teams,
-            self.settings,
-            self.hard,
-            self
-        )
-
+        self.worker = BotWorker(data, self.events)
         self.worker.moveToThread(self.thread)
+
         self.thread.started.connect(self.worker.run)
         self.worker.finished.connect(self.thread.quit)
         self.worker.finished.connect(self.worker.deleteLater)
         self.thread.finished.connect(self.thread.deleteLater)
-        self.thread.finished.connect(self._on_worker_thread_finished)
-
-        self.worker.error.connect(self.handle_bot_error)
-        self.worker.warning.connect(self.handle_bot_warning)
 
         self.thread.start()
 
     @pyqtSlot()
-    def _on_worker_thread_finished(self):
-        self.worker = None
-        self.thread = None
-
-    @pyqtSlot()
     def to_pause(self):
+        self.events.pause_event.clear()
         self.run.hide()
         self.rerun.hide()
-        self.pause.raise_()
         self.pause.show()
+        self.pause.raise_()
 
     def proceed(self):
         self.pause.hide()
         self.warn.hide()
-        self.rerun.raise_()
         self.rerun.show()
-        p.pause_event.set()
+        self.rerun.raise_()
+        self.events.pause_event.set()
 
     @pyqtSlot()
     def stop_execution(self):
         print("Stopping execution...")
-        p.stop_event.set()
-        p.pause_event.set()
+        
+        self.events.stop_event.set()
+        self.events.pause_event.set()
 
-        if self.thread is not None and self.thread.isRunning():
-            self.thread.quit()
-            self.thread.wait()
         self.run.hide()
         self.rerun.hide()
         self.pause.hide()
         self.progress.hide()
-        self.warn.hide()
-
-        if self.buttons['update'].isVisible(): self.buttons['update'].resume_flickering()
         
+        if self.buttons['update'].isVisible(): 
+            self.buttons['update'].resume_flickering()
+    
+    @pyqtSlot(str)
     def handle_bot_error(self, message):
         self.run.hide()
         self.pause.hide()
@@ -1439,61 +1461,20 @@ class MyApp(QWidget):
 
         self.progress.hide()
 
+    @pyqtSlot()
     def handle_bot_warning(self, message):
         self.warn.raise_()
         self.warn_txt.setText(message)
         self.warn.show()
 
 
-class ScrollableMyApp(QMainWindow):
-    def __init__(self):
-        super().__init__()
-        self.base_width = 700
-        self.base_height = 785
-        
-        self.setWindowTitle(f"ChargeGrinder v{Bot.APP_VERSION}")
-        self.setWindowIcon(QIcon(Bot.ICON))
-        
-        self.scroll_area = QScrollArea()
-        self.scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
-        self.scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        self.scroll_area.setWidgetResizable(False)
-        self.scroll_area.setFrameShape(QFrame.Shape.NoFrame)
-        
-        self.content_widget = MyApp()
-        self.content_widget.setFixedSize(self.base_width, self.base_height)
-               
-        self.scroll_area.setWidget(self.content_widget)
-        self.setCentralWidget(self.scroll_area)
-        
-        self.setFixedSize(self.base_width, self.get_window_height())
-        self.update_scrollbar_visibility()
-    
-    def update_scrollbar_visibility(self):
-        current_height = self.height()
-        
-        if current_height >= self.base_height:
-            self.scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        else:
-            self.scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
-
-    def get_display_height(self):
-        screen = QApplication.screenAt(self.pos())
-        if screen is None:
-            screen = QApplication.primaryScreen()
-        
-        return screen.availableGeometry().height()
-
-    def get_window_height(self):
-        display_height = self.get_display_height() 
-        if display_height < self.base_height:
-            return display_height - 50
-        else:
-            return self.base_height
-
-
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    window = ScrollableMyApp()
+    window = ScrollableMyApp(MyApp())
+
+    sys.excepthook = lambda t, v, tb: window.content_widget.handle_bot_error(
+        "".join(traceback.format_exception(t, v, tb))
+    )
+
     window.show()
     sys.exit(app.exec())

@@ -1,0 +1,28 @@
+WORDLESS = {
+    0:  {"name": "falsehalo",           "state": 3, "tier": 4},
+    1:  {"name": "pieceofrelationship", "state": 3, "tier": 4},
+    2:  {"name": "carmilla",            "state": 3, "tier": 2},
+    3:  {"name": "investigatorbadge",   "state": 3, "tier": 2},
+    4:  {"name": "ancienteffigy",       "state": 2, "tier": 4},
+    5:  {"name": "faith",               "state": 2, "tier": 4},
+    6:  {"name": "kimjihoon",           "state": 2, "tier": 4},
+    7:  {"name": "grandwelcome",        "state": 2, "tier": 3},
+    8:  {"name": "illusoryhunt",        "state": 2, "tier": 3},
+    9:  {"name": "prestigecard",        "state": 2, "tier": 3},
+    10: {"name": "rustycoin",           "state": 2, "tier": 3},
+    11: {"name": "specialcontract",     "state": 2, "tier": 3},
+    12: {"name": "blessing",            "state": 2, "tier": 3},
+    13: {"name": "tango",               "state": 2, "tier": 3},
+    14: {"name": "childwithinflask",    "state": 2, "tier": 2},
+    15: {"name": "coffeecranes",        "state": 2, "tier": 2},
+    16: {"name": "motheclipse",         "state": 2, "tier": 2},
+    17: {"name": "goldenurn",           "state": 2, "tier": 2},
+    18: {"name": "homeward",            "state": 2, "tier": 2},
+    19: {"name": "oracle",              "state": 2, "tier": 2},
+    20: {"name": "painkiller",          "state": 2, "tier": 2},
+    21: {"name": "hammer",              "state": 2, "tier": 2},
+    22: {"name": "lithograph",          "state": 2, "tier": 1},
+    23: {"name": "phlebotomypack",      "state": 2, "tier": 1},
+}
+
+WORDLESS_MAP = {v["name"]: v["tier"] for v in WORDLESS.values()}

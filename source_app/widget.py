@@ -1,4 +1,7 @@
-from source_app.utils import *
+from PyQt6.QtWidgets import QWidget, QPushButton, QLineEdit, QLabel, QLayout, QHBoxLayout, QVBoxLayout, QScrollArea
+from PyQt6.QtGui import QFont, QIntValidator
+from PyQt6.QtCore import Qt, pyqtSignal, QSize, QRect, QPoint
+
 
 # Custom selectize like in shiny
 class FlowLayout(QLayout):

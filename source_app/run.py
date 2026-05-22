@@ -1,9 +1,12 @@
-from source_app.utils import *
-from source_app.cache import CacheWorker
-from source.utils.paths import APP_VERSION
+import json
+import logging
+import traceback
 
-from PySide6.QtCore import QUrl
-from PySide6.QtNetwork import QNetworkAccessManager, QNetworkRequest, QNetworkReply
+from PyQt6.QtCore import QObject, pyqtSignal, QUrl, pyqtSlot
+from PyQt6.QtNetwork import QNetworkAccessManager, QNetworkRequest, QNetworkReply
+
+from source_app.data import BotConfig, VERSION
+from Bot import execute_me
 
 
 class VersionChecker(QObject):
@@ -15,10 +18,9 @@ class VersionChecker(QObject):
         self.manager.finished.connect(self._on_finished)
 
     def check(self):
-        req = QNetworkRequest(QUrl("https://api.github.com/repos/Walpth/Charge-Grinder/releases/latest"))
+        req = QNetworkRequest(QUrl("https://api.github.com/repos/AlexWalp/Mirror-Dungeon-Bot/releases/latest"))
         req.setRawHeader(b"User-Agent", b"MirrorDungeonBot-VersionChecker/1.0")
         req.setRawHeader(b"Accept", b"application/vnd.github.v3+json")
-        req.setTransferTimeout(10000)
         self.manager.get(req)
 
     def _on_finished(self, reply):
@@ -35,7 +37,7 @@ class VersionChecker(QObject):
         try:
             j = json.loads(data)
             tag = j.get("tag_name", "").lstrip("vV")
-            is_up_to_date = self._compare_versions(tag, APP_VERSION)
+            is_up_to_date = self._compare_versions(tag, VERSION)
         except Exception as e:
             print("Parse error:", e)
             is_up_to_date = True
@@ -51,67 +53,22 @@ class VersionChecker(QObject):
         except Exception:
             return True
 
-# Handle bot proccess
+
 class BotWorker(QObject):
     finished = pyqtSignal()
-    error = pyqtSignal(str)
-    warning = pyqtSignal(str)
 
-    def __init__(self, count, count_exp, count_thd, teams, settings, hard, app):
+    def __init__(self, config: BotConfig, events):
         super().__init__()
-        self.count = count
-        self.count_exp = count_exp
-        self.count_thd = count_thd
-        self.teams = teams
-        self.settings = settings
-        self.hard = hard
-        self.app = app
+        self.config = config
+        self.events = events
 
-        self.cache_thread = None
-        self.cache_worker = None
-
+    @pyqtSlot()
     def run(self):
         try:
-            teams_filtered = {k: v for k, v in self.teams.items() if k < 7}
-            if teams_filtered:
-                self.start_cache_thread(teams_filtered, self.settings, self.hard)
-
-            Bot.execute_me(
-                self.count,
-                self.count_exp,
-                self.count_thd,
-                self.teams,
-                self.settings,
-                self.hard,
-                self.app,
-                warning=self.warning.emit
-            )
+            execute_me(self.config, self.events)
         except Exception as e:
-            logging.exception("Uncaught exception in BotWorker thread")  
-            self.error.emit(str(e))
+            tb = traceback.format_exc()
+            logging.error(tb)
+            self.events.error_raised.emit(str(e))
         finally:
-            self.stop_cache_thread()
             self.finished.emit()
-
-    def start_cache_thread(self, teams, settings, hard):
-        self.cache_thread = QThread()
-        self.cache_worker = CacheWorker(teams, settings, hard)
-
-        self.cache_worker.moveToThread(self.cache_thread)
-        self.cache_thread.started.connect(self.cache_worker.run)
-        self.cache_worker.finished.connect(self.cache_thread.quit)
-        self.cache_worker.finished.connect(self.cache_worker.deleteLater)
-        self.cache_thread.finished.connect(self.cache_thread.deleteLater)
-
-        self.cache_thread.start()
-
-    def stop_cache_thread(self):
-        if not self.cache_thread:
-            return
-
-        if self.cache_thread.isRunning():
-            self.cache_thread.quit()
-            self.cache_thread.wait(3000)
-
-        self.cache_thread = None
-        self.cache_worker = None

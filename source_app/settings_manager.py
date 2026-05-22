@@ -1,5 +1,13 @@
-from source_app.utils import *
-from source.utils.paths import PACKS, WORDLESS
+import copy
+import json
+import hashlib
+import os
+
+from PyQt6.QtCore import QTimer, QObject, pyqtSignal, QThread
+
+from source_app.data import WORDLESS
+from source.data.packs_data import PACKS
+
 
 class SettingsManager(QObject):
     import_error = pyqtSignal(str)
@@ -17,23 +25,6 @@ class SettingsManager(QObject):
         self._worker = SaveWorker(self.path)
         self._worker.moveToThread(self._thread)
         self._thread.start()
-
-        app = QApplication.instance()
-        if app is not None:
-            app.aboutToQuit.connect(self.shutdown)
-
-    def shutdown(self):
-        if self._thread is None:
-            return
-        if self._thread.isRunning():
-            self._thread.quit()
-            self._thread.wait(1500)
-
-    def __del__(self):
-        try:
-            self.shutdown()
-        except Exception:
-            pass
 
     @property
     def config(self):
@@ -278,7 +269,6 @@ class SettingsManager(QObject):
             if not (isinstance(extra_data, list) and len(extra_data) == 8):
                 return False
             counts = extra_data[:3]
-            if counts[0] == -1: counts[0] = 9999 # only needed for checks
             if not all(isinstance(x, int) and x in range(10000) for x in counts):
                 return False
             settings = extra_data[3:]

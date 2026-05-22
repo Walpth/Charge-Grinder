@@ -3,7 +3,7 @@ venv
 build
 dist
 AppDir
-data
+tests
 skill_data
 testing
 choices
@@ -12,4 +12,3 @@ game.csv
 testing.py
 convert_ego.py
 os_wayland_backend.py
-input_api

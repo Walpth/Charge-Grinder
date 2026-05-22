@@ -1,0 +1,155 @@
+{
+  "MainMenu": {
+    "drive"           : { "region": [1413,  909,  116,   94] },
+    "mirror_dungeon"  : { "region": [ 528,  354,  279,  196] },
+    "start"           : { "region": [1473,  657,  315,  161] },
+    "resume"          : { "region": [ 794,  567,  336,   63] },
+    "enter_invert"    : { "region": [ 943,  669,  382,  106] },
+    "confirm_team"    : { "region": [1593,  830,  234,   90] },
+    "enter_bonus"     : { "region": [1702,  957,  166,   85] },
+    "starlight"       : { "region": [1069,  525,   42,   42] },
+    "refuse"          : { "region": [1181,  818,  295,  124] },
+    "gift_search"     : { "region": [1640,  207,   70,   60] },
+    "claim"           : { "region": [1540,  831,  299,  132] },
+    "confirm_invert"  : { "region": [ 987,  704,  318,   71] },
+    "claim_invert"    : { "region": [1165,  790,  300,   56] },
+    "victory"         : { "region": [1426,  116,  366,  184] },
+    "defeat"          : { "region": [1426,  116,  366,  184] },
+    "give_up"         : { "region": [ 420,  790,  330,   54] },
+    "confirm_run"     : { "region": [ 816,  657,  471,  197], "asset": "confirm"},
+    "server_error"    : { "region": [ 651,  640,  309,  124] },
+    "event_effect"    : { "region": [ 710,  215,  507,   81] },
+    "bonus"           : { "region": [ 763,  348,  151,   59], "strategy": "rgb"},
+    "bonus_off"       : { "region": [ 763,  348,  151,   59], "strategy": "rgb", "conf": 0.8},
+    "hard_bonus"      : { "region": [ 916,  348,  151,   59], "asset": "bonus", "strategy": "rgb"},
+    "hard_bonus_off"  : { "region": [ 916,  348,  151,   59], "asset": "bonus_off", "strategy": "rgb", "conf": 0.8},
+    "confirm_enkeph"  : { "region": [ 987,  704,  318,  130], "asset": "confirm_invert" },
+    "infinite_off"    : { "region": [1690,  500,   45,   30], "strategy": "rgb"},
+    "out_of_fuel"     : { "region": [ 750,  150,  424,   66] },
+  
+    "money_R"         : { "region": [1526,   52,   80,   30], "method": "sqdiff_normed"},
+    "gifts_R"         : { "region": [1173,  324,  129,  125] },
+    "selected_R"      : { "region": [1682,  855,   30,   42] },
+    "full_R"          : { "strategy": "rgb" }
+  },
+
+  "BattleMenu": {
+    "to_battle"       : { "region": [1586,  820,  254,  118] },
+    "winrate"         : { "region": [ 350,  730, 1570,  232] },
+    "pause"           : { "region": [1724,   16,   83,   84] },
+    "confirm_alt"     : { "region": [ 960,  689,  350,  100] },
+    "arrow"           : { "region": [ 189,  443,   16,   15], "strategy": "rgb", "conf": 0.7},
+    "ego_warning"     : { "region": [1250,  880,  670,  200] },
+    "ego_usage"       : { "region": [1850, 1020,   70,   60] },
+    "retry_stage"     : { "region": [ 937,  476,  170,   46] },
+    "confirm_retry"   : { "region": [ 829,  763,  278,   53] },
+
+    "teams_R"         : { "region": [  96,  441,  180,  350] },
+    "current_team_R"  : { "region": [ 330,  165,  200,   50] },
+    "skip_yap_R"      : { "region": [ 740,  450,  470,  200] }
+  },
+
+  "EventMenu": {
+    "text_ego"        : { "region": [1031,  254,  713,  516], "conf": 0.85},
+    "text_new"        : { "region": [1031,  254,  713,  516], "conf": 0.85},
+    "text_lvl"        : { "region": [1031,  254,  713,  516], "conf": 0.85},
+    "text_win"        : { "region": [1031,  254,  713,  516], "conf": 0.85},
+    "event_skip"      : { "region": [ 850,  427,  103,   52] },
+    "check"           : { "region": [1265,  434,  430,   87] },
+    "choices"         : { "region": [1036,  152,  199,   77] },
+    "proceed"         : { "region": [1539,  906,  316,  126] },
+    "commence"        : { "region": [1539,  906,  316,  126] },
+    "continue_"       : { "region": [1539,  906,  316,  126] },
+    "commence_battle" : { "region": [1539,  906,  316,  126] },
+
+    "probs_R"         : { "region": [  42,  900, 1271,   50] }
+  },
+
+  "GrabMenu": {
+    "encounter_reward": { "region": [ 412,  165,  771,   72] },
+    "confirm_ego"     : { "region": [ 791,  745,  336,  104], "asset": "confirm" },
+    "cancel"          : { "region": [ 660,  650,  278,   92] },
+    "ego_bin"         : { "region": [  87,   49,   90,   90] },
+    "owned"           : { "region": [   0,  216, 1725,   50], "strategy": "rgb" },
+    "confirm_card"    : { "region": [1118,  754,  189,   70], "asset": "confirm" },
+    "trials"          : { "region": [   0,  615, 1920,   55] },
+    "adversity"       : { "region": [  43,   32,  320,   70] },
+    "projection"      : { "region": [ 153,  713, 1620,   76], "strategy": "rgb" },
+
+    "select_count_R"  : { "region": [1790,  843,   30,   45] },
+    "card_R"          : { "region": [ 219,  283, 1531,  242] },
+    "ego_R"           : { "region": [   0,  309, 1920,  110], "strategy": "rgb" },
+    "ego_tier_R"      : { "region": [   0,  309, 1920,  110], "strategy": "rgb", "method": "sqdiff_normed" , "conf": 0.85},
+    "reward_count_R"  : { "region": [1494,  181,   23,   42] },
+    "buffs_R"         : { "region": [   0,  664, 1920,   52] }
+  },
+
+  "MoveMenu": {
+    "move"            : { "region": [1805,  107,   84,   86] },
+    "enter"           : { "region": [1537,  739,  310,  141] },
+    "superposition"   : { "region": [ 756,  233,  437,  121] },
+    "secret_encounter": { "region": [1595,  767,  183,  100] },
+    "skip_encounter"  : { "region": [1379,  763,  195,  110] },
+
+    "directions_R"    : { "region": [ 523,  303,  155,  473] }
+  },
+
+  "PackMenu": {
+    "pack_choice"     : { "region": [1757,  126,  115,  116] },
+    "pack_pull"       : { "region": [  40,  440,  440,  200] },
+    "hard_difficulty" : { "region": [ 893,  207,  115,   44] },
+    
+    "sift_search_R"   : { "region": [ 161,  630, 1632,  140], "strategy": "sift" },
+    "lvl_R"           : { "region": [ 950,  151,   40,   52] }
+  },
+
+  "ShopMenu": {
+    "shop"            : { "region": [ 332,  158,  121,   55] },
+    "supershop"       : { "region": [ 275,  158,  220,   55] },
+    "sell"            : { "region": [ 776,  118,  127,   70] },
+    "purchase"        : { "region": [ 972,  679,  288,   91] },
+    "power"           : { "region": [ 990,  832,  393,   91] },
+    "confirm_fuse"    : { "region": [ 990,  832,  393,   91], "asset": "confirm" },
+    "confirm_sell"    : { "region": [ 987,  704,  318,   71], "asset": "confirm_retry" },
+    "keyword_sel"     : { "region": [ 832,  119,  469,   58] },
+    "keyword_ref"     : { "region": [ 678,  162,  340,   53] },
+    "fuse"            : { "region": [ 754,  117,  161,   81] },
+    "scroll"          : { "region": [1647,  321,   64,   81], "strategy": "rgb"},
+    "scroll_low"      : { "region": [1647,  662,   64,   81], "asset": "scroll", "strategy": "rgb"},
+    "wishmaking"      : { "region": [ 384,  731,   49,   53] },
+    "replace"         : { "region": [ 280,  165,  530,   80] },
+    "purchased"       : { "region": [ 860,  317,  150,   50] },
+    "purchased_super" : { "region": [1090,  317,  385,   50], "asset": "purchased"},
+    "no_hp"           : { "region": [  70,  985, 1400,   50] },
+    "return_"         : { "region": [1569,  920,  260,  100] },
+    "select"          : { "region": [1569,  920,  260,  100] },
+
+    "buy_s3_R"        : { "region": [ 880,  494,  620,   38] },
+    "buy_shelf_R"     : { "region": [ 809,  300,  942,  402] },
+    "fuse_shelf_R"    : { "region": [ 920,  295,  790,  482] },
+    "fuse_shelf_low_R": { "region": [ 920,  591,  790,  150] },
+    "affinity_R"      : { "region": [ 368,  327, 1160,  442] },
+    "revenue_R"       : { "region": [1405,  126,  241,   56] },
+    "forecast_R"      : { "region": [ 280,  257,  540,  334] }
+  },
+
+  "UtilsMenu": {
+    "all_dead"        : { "region": [ 261, 1019, 1391,   41], "asset": "0" },
+    "forfeit"         : { "region": [ 740,  547,  151,  208] },
+    "connecting"      : { "region": [1548,   66,  293,   74] },
+    "loading"         : { "region": [1577,  408,  302,   91] }
+  },
+
+  "LuxMenu": {
+    "lux"             : { "region": [ 523,  145,  301,  212] },
+    "exp"             : { "region": [  68,  319,  289,  135] },
+    "window"          : { "region": [1160,  900,  148,  127] },
+    "settings"        : { "region": [1726,  116,  150,  150] },
+    "pass_missions"   : { "region": [ 459,   57,  198,   56] },
+    "daily"           : { "region": [ 372,  328,   70,  115] },
+    "collect"         : { "region": [ 974,  266,   80,  600] },
+
+    "pick_R"          : { "region": [ 417,  667, 1428,   95] },
+    "thd_R"           : { "region": [1152,  324,  163,  462] }
+  }
+}
