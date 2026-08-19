@@ -1,4 +1,4 @@
-import hashlib, json, logging, os, queue, re, sys, threading, time
+import hashlib, json, logging, os, queue, re, sys, threading, time, ssl, certifi
 from datetime import datetime, timezone
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode, urlsplit
@@ -62,6 +62,7 @@ _FOCUS_LABELS = {
     "ENVY": "Envy"
 }
 
+SSL_CONTEXT = ssl.create_default_context(cafile=certifi.where())
 _CONTEXT_DEFAULT = {
     "team": None,
     "group": None,
@@ -412,7 +413,7 @@ class DiscordWebhookClient:
         )
 
         try:
-            with urlopen(request, timeout=self.timeout) as response:
+            with urlopen(request, timeout=self.timeout, context=SSL_CONTEXT) as response:
                 self._update_bucket_limit(response.headers)
             return False
         except HTTPError as err:

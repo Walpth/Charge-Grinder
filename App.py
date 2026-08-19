@@ -4,13 +4,12 @@ from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
 from source_app.utils import *
-from source.utils.discord_webhook import validate_snowflake, validate_webhook_url
+from source.utils.discord_webhook import validate_snowflake, validate_webhook_url, SSL_CONTEXT
 from source_app.settings_manager import SettingsManager
 from source_app.widget import SelectizeWidget, IntField, AllIntField
 from source_app.button import CustomButton
 from source_app.run import VersionChecker, BotWorker
 from source_app.check_interception import check_windows
-from source_app.check_linux_backend import check_linux
 
 class MyApp(QWidget):
     webhook_test_result = pyqtSignal(bool, str)
@@ -20,9 +19,6 @@ class MyApp(QWidget):
         super().__init__()
 
         if not check_windows(app_parent=self):
-            raise SystemExit(0)
-
-        if not check_linux(app_parent=self):
             raise SystemExit(0)
 
         # params
@@ -59,7 +55,7 @@ class MyApp(QWidget):
         self.webhook_test_result.connect(self._handle_webhook_test_result)
 
         self.setFocus()
-    
+
     #     self.debug_timer = QTimer()
     #     self.debug_timer.timeout.connect(self.print_state)
     #     self.debug_timer.start(2000)  # 2000 ms = 2 sec
@@ -92,7 +88,7 @@ class MyApp(QWidget):
     def _init_ui(self):
         """Initialize main window settings"""
         self.background = QPixmap(Bot.APP_PTH["UI"])
-        
+
         font_id = QFontDatabase.addApplicationFont(Bot.APP_PTH["ExcelsiorSans"])
         if font_id != -1: self.family = QFontDatabase.applicationFontFamilies(font_id)[0]
         self.inputField = AllIntField(self)
@@ -353,7 +349,7 @@ class MyApp(QWidget):
             team = self.team
         self.priority, self.avoid, self.priority_floors, self.avoid_floors = self.get_packs(team)
         self.all = self.get_all()
-    
+
     def get_packs(self, team):
         if self.sm.config_exists(team):
             priority, avoid, priority_floors, avoid_floors = self.sm.get_config(team)
@@ -481,12 +477,12 @@ class MyApp(QWidget):
     def handle_item_added(self, item):
         if item in self.available_items:
             self.available_items.remove(item)
-        
+
         if item in self.priority:
             self.avoid = [i for i in self.avoid if i != item]
         if item in self.avoid:
             self.priority = [i for i in self.priority if i != item]
-        
+
         for combo in self.combo_boxes:
             current_text = combo.currentText()
             combo.clear()
@@ -504,21 +500,21 @@ class MyApp(QWidget):
             self.avoid.remove(item)
             if hasattr(self, 'avoid_floors'):
                 self.avoid_floors.pop(item, None)
-        
+
         if item not in self.available_items:
             orig_index = next((i for i, x in enumerate(self.all) if x == item), -1)
             if orig_index >= 0:
                 self.available_items.insert(orig_index, item)
             else:
                 self.available_items.append(item)
-        
+
         for combo in self.combo_boxes:
             current_text = combo.currentText()
             combo.clear()
             combo.addItems(self.available_items)
             if current_text in self.available_items:
                 combo.setCurrentText(current_text)
-    
+
     def reset_to_defaults(self, team, default=True):
         # Reset the data lists to defaults
         if default:
@@ -550,7 +546,7 @@ class MyApp(QWidget):
             return (day_number + 1) % 7
         else:
             return (day_number > 1) + (day_number > 3) - (day_number == 6)
-    
+
     def get_priority(self, team):
         affinity = self.selected_affinity[team][0]
         if self.hard:
@@ -558,20 +554,20 @@ class MyApp(QWidget):
         else:
             team_data = Bot.HARD[list(Bot.HARD.keys())[affinity]]
         return team_data.get(f"floors", [])
-    
+
     def get_all(self):
         if self.hard:
             return Bot.HARD_UNIQUE
         else:
             return Bot.FLOORS_UNIQUE
-        
+
     def check_floor(self, name, floor):
         if 11 > floor > 5: floor = 5
         elif floor > 10:   floor = 15
 
-        if self.hard: 
+        if self.hard:
             floor_dict = Bot.HARD_FLOORS
-        else: 
+        else:
             floor_dict = Bot.FLOORS
 
         if name in floor_dict[floor]:
@@ -602,7 +598,7 @@ class MyApp(QWidget):
                 'icon': Bot.APP_PTH['affinity_support']
             }) for i in range(7)
         ]
-    
+
     def _get_button_keyword(self):
         return [
             (f'keyword{i}', {
@@ -614,7 +610,7 @@ class MyApp(QWidget):
                 'icon': Bot.APP_PTH['affinity'],
             }) for i in range(10)
         ]
-    
+
     def _get_keyword_icon(self):
         return [
             (f'icon{i}', {
@@ -634,7 +630,7 @@ class MyApp(QWidget):
                 'icon': Bot.APP_PTH['affinity'],
             }) for i in range(7)
         ]
-    
+
     def _get_button_on(self):
         return [
             (f'on{i}', {
@@ -667,7 +663,7 @@ class MyApp(QWidget):
                 'icon': Bot.APP_PTH['affinity_support']
             }) for i in range(4)
         ]
-    
+
     def _get_buff_ex(self):
         return [
             (f'buff{i}', {
@@ -680,7 +676,7 @@ class MyApp(QWidget):
                 'icon': Bot.APP_PTH['affinity_support']
             }) for i in range(4, 10)
         ]
-    
+
     def _get_button_selected(self):
         return [
             (f'sel{i+1}', {
@@ -691,7 +687,7 @@ class MyApp(QWidget):
                 'click_handler': self.update_selected_buttons,
             }) for i in range(12)
         ]
-    
+
     def _get_card_order(self):
         return [
             (f'card{i+1}', {
@@ -702,7 +698,7 @@ class MyApp(QWidget):
                 'click_handler': self.update_card_buttons,
             }) for i in range(5)
         ]
-    
+
     def _get_ego_buttons(self):
         return [
             (f'ego{i}', {
@@ -906,7 +902,7 @@ class MyApp(QWidget):
 
             if len(state) > 8:
                 self.hos_mode.setChecked(bool(state[8]))
-    
+
     def save_affinity(self):
         state = dict()
         for i in range(7):
@@ -956,11 +952,11 @@ class MyApp(QWidget):
         self.update_sinners()
         self.sinner_selections[self.team] = self.sinners
         self.set_selected_buttons(self.sinner_selections[self.team_lux + 7])
-    
+
     @pyqtSlot()
     def lux_hide(self):
         self.is_lux = False
-        self.update_sinners() 
+        self.update_sinners()
         self.sinner_selections[self.team_lux + 7] = self.sinners
         self.set_selected_buttons(self.sinner_selections[self.team])
         self.lux.hide()
@@ -1186,7 +1182,7 @@ class MyApp(QWidget):
     def _send_webhook_test_request(self, data):
         def send_once():
             request = self._build_webhook_test_request(data, include_thread=True)
-            with urlopen(request, timeout=4):
+            with urlopen(request, timeout=4, context=SSL_CONTEXT):
                 pass
 
         try:
@@ -1227,7 +1223,7 @@ class MyApp(QWidget):
         self.update_sinners()
         self.sm.set_team(team, self.sinners)
         self.sm.save_settings()
-    
+
     def reset(self):
         self.selected_button_order.clear()
         for key, button in self.buttons.items():
@@ -1252,7 +1248,7 @@ class MyApp(QWidget):
             self.webhook_panel.raise_()
             self.webhook_panel.show()
             return
-        
+
         self.sm.set_config(self.team, (self.priority, self.avoid, self.priority_floors, self.avoid_floors))
         self.sm.set_config(7, {str(id): state for id, state in self.keywordless.items()})
         self.sm.set_config(8, self.get_config_buttons())
@@ -1277,23 +1273,23 @@ class MyApp(QWidget):
             activated.append(getattr(self.buttons[f'buff{i}'], 'config', {}).get('state', 0))
         activated.append(self.hos_mode.isChecked())
         return activated
-    
+
     def ask_csv(self):
         msg = QMessageBox(self)
         msg.setIcon(QMessageBox.Icon.NoIcon)
         msg.setWindowTitle("Get run stats")
         msg.setText("Do you want to export your run data from game.log to game.csv?")
-        
+
         msg.setStandardButtons(
-            QMessageBox.StandardButton.Yes | 
+            QMessageBox.StandardButton.Yes |
             QMessageBox.StandardButton.No
         )
-        
+
         response = msg.exec()
-        
+
         if response == QMessageBox.StandardButton.Yes:
             self.get_csv()
-    
+
     def get_csv(self):
         try:
             log_to_csv()
@@ -1305,7 +1301,7 @@ class MyApp(QWidget):
             msg.setStandardButtons(QMessageBox.StandardButton.Ok)
             msg.exec()
 
-    
+
     def set_buttons_active(self, states):
         if not states: return
         if len(states) == 18 and isinstance(states[7], bool) and not isinstance(states[8], bool):
@@ -1355,7 +1351,7 @@ class MyApp(QWidget):
         sender = self.sender()
         if not sender or not isinstance(sender, QPushButton):
             return
-        
+
         id = None
         for i in range(10):
             if self.buttons[f"team_lux{i}"] == sender:
@@ -1430,7 +1426,7 @@ class MyApp(QWidget):
         self.reset_to_defaults(self.team, default=False)
         self.set_selected_buttons(self.sinner_selections[self.team])
         self.set_affinity_buttons(self.selected_affinity[self.team])
-    
+
     def activate_keyword_button(self):
         sender = self.sender()
         if not sender or not isinstance(sender, QPushButton):
@@ -1439,7 +1435,7 @@ class MyApp(QWidget):
         button_key = next((k for k, v in self.buttons.items() if v == sender), None)
         if not button_key:
             return
-        
+
         selected_affinity_buttons = [self.buttons[f'keyword{id}'] for id in self.selected_affinity[self.team]]
 
         main = selected_affinity_buttons[0]
@@ -1479,7 +1475,7 @@ class MyApp(QWidget):
         sender = self.sender()
         if not sender or not isinstance(sender, QPushButton):
             return
-        
+
         if sender.isChecked():
             icon_path = getattr(sender, 'config', {}).get('icon', '')
             if icon_path:
@@ -1499,12 +1495,12 @@ class MyApp(QWidget):
         sender = self.sender()
         if not sender or not isinstance(sender, QPushButton):
             return
-        
+
         id = getattr(sender, 'config', {}).get('id', None)
         state = getattr(sender, 'config', {}).get('state', None)
-        if id is None or state is None: 
+        if id is None or state is None:
             return
-        
+
         states = [j for j in range(Bot.WORDLESS[id]['state'] + 1)]
         i = states.index(state)
         next_state = states[(i + 1) % len(states)]
@@ -1523,10 +1519,10 @@ class MyApp(QWidget):
         sender = self.sender()
         if not sender or not isinstance(sender, QPushButton):
             return
-        
+
         id = getattr(sender, 'config', {}).get('id', None)
         state = getattr(sender, 'config', {}).get('state', None)
-        if id is None or state is None: 
+        if id is None or state is None:
             return
 
         next_state = (state + 1) % 4
@@ -1641,7 +1637,7 @@ class MyApp(QWidget):
             button.setChecked(True)
             button.setIcon(QIcon(icon_path))
             button.setIconSize(button.size())
-            
+
     def show_guide(self):
         self.guide.raise_()
         self.guide.show()
@@ -1660,13 +1656,13 @@ class MyApp(QWidget):
     def check_inputs(self):
         if self.is_lux and (self.count_exp + self.count_thd) < 1: return False
         return True
-    
+
     def check_sinners(self):
         errors = []
         for team in self.teams.keys():
             if len(self.teams[team]["sinners"]) < 1:
                 errors.append(team)
-        
+
         if not errors: return True
 
         suffix = ''
@@ -1690,7 +1686,7 @@ class MyApp(QWidget):
             [self.buttons[f'team{suffix}{i}'] for i in errors]
         )
         return False
-    
+
     def get_params(self):
         # MD count
         text = self.inputField.text()
@@ -1740,11 +1736,11 @@ class MyApp(QWidget):
                         "duplicates": affinity in duplicates,
                         "affinity_idx": counts[i],
                         "affinity": self.selected_affinity[i],
-                        "sinners": self.sinner_selections[i], 
+                        "sinners": self.sinner_selections[i],
                         "priority": (priority, priority_f),
                         "avoid": (avoid, priority_f, avoid_f)
-                    }               
-        
+                    }
+
 
         self.settings = {
             'bonus'      : self.buttons['on0'].isChecked(),
@@ -1850,7 +1846,7 @@ class MyApp(QWidget):
         self.warn.hide()
 
         if self.buttons['update'].isVisible(): self.buttons['update'].resume_flickering()
-        
+
     def handle_bot_error(self, message):
         self.run.hide()
         self.pause.hide()
@@ -1878,28 +1874,28 @@ class ScrollableMyApp(QMainWindow):
         super().__init__()
         self.base_width = 700
         self.base_height = 785
-        
+
         self.setWindowTitle(f"ChargeGrinder v{Bot.APP_VERSION}")
         self.setWindowIcon(QIcon(Bot.ICON))
-        
+
         self.scroll_area = QScrollArea()
         self.scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         self.scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.scroll_area.setWidgetResizable(False)
         self.scroll_area.setFrameShape(QFrame.Shape.NoFrame)
-        
+
         self.content_widget = MyApp()
         self.content_widget.setFixedSize(self.base_width, self.base_height)
-               
+
         self.scroll_area.setWidget(self.content_widget)
         self.setCentralWidget(self.scroll_area)
-        
+
         self.setFixedSize(self.base_width, self.get_window_height())
         self.update_scrollbar_visibility()
-    
+
     def update_scrollbar_visibility(self):
         current_height = self.height()
-        
+
         if current_height >= self.base_height:
             self.scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         else:
@@ -1909,11 +1905,11 @@ class ScrollableMyApp(QMainWindow):
         screen = QApplication.screenAt(self.pos())
         if screen is None:
             screen = QApplication.primaryScreen()
-        
+
         return screen.availableGeometry().height()
 
     def get_window_height(self):
-        display_height = self.get_display_height() 
+        display_height = self.get_display_height()
         if display_height < self.base_height:
             return display_height - 50
         else:
