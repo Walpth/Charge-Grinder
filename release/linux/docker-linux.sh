@@ -72,6 +72,7 @@ if [ "$INSIDE_DOCKER" = "1" ]; then
       --nofollow-import-to=source.utils.os_windows_backend \
       --include-package=gi \
       --include-package=dbus \
+      --include-package-data=certifi \
       --output-dir="$NUITKA_OUT_DIR" \
       --output-filename=app \
       --include-data-dir="$ROOT_DIR/ImageAssets/UI"=ImageAssets/UI \
