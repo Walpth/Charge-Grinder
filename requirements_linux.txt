@@ -1,6 +1,7 @@
 numpy==2.2.4
 opencv-python-headless==4.10.0.84
 PySide6
+certifi==2026.7.22
 
 # Input (both backends) + X11 window/pointer/keymap queries.
 # Xlib is also used by the Wayland backend for pointer/keymap via XWayland.

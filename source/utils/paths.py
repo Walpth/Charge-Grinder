@@ -1,6 +1,20 @@
 import os, sys, platform
 
 
+def _configure_appimage_ca_bundle():
+    if (
+        "__compiled__" not in globals()
+        or sys.platform != "linux"
+        or not os.environ.get("APPIMAGE")
+        or os.environ.get("SSL_CERT_FILE")
+    ):
+        return
+
+    bundle_path = os.path.join(BASE_PATH, "cacert.pem")
+    if os.path.isfile(bundle_path):
+        os.environ["SSL_CERT_FILE"] = bundle_path
+
+
 def _runtime_base_path():
     # For compiled binaries, keep asset lookup relative to the executable folder.
     if "__compiled__" in globals():
@@ -11,6 +25,9 @@ def _runtime_base_path():
 
 
 BASE_PATH = _runtime_base_path()
+
+
+_configure_appimage_ca_bundle()
 
 VERSION_FILE = os.path.join(BASE_PATH, "version")
 

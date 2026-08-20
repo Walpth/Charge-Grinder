@@ -140,6 +140,15 @@ if [ "$INSIDE_DOCKER" = "1" ]; then
     done
 
     cp -a "$NUITKA_DIST_DIR" "$OUT_DIR"
+
+    CA_BUNDLE="$(python -c 'import certifi; print(certifi.where())')"
+    if [ ! -r "$CA_BUNDLE" ]; then
+      echo "ERROR: certifi CA bundle was not found: $CA_BUNDLE"
+      exit 1
+    fi
+    cp "$CA_BUNDLE" "$OUT_DIR/cacert.pem"
+    chmod 644 "$OUT_DIR/cacert.pem"
+
     chmod +x "$OUT_DIR/app" "$OUT_DIR/gstreamer-1.0/gst-plugin-scanner"
     echo "Nuitka output prepared at $OUT_DIR"
 else

@@ -36,6 +36,10 @@ if [ ! -d "$DOCKER_OUTDIR/app" ]; then
   echo "ERROR: Expected Docker build output directory not found: $DOCKER_OUTDIR/app"
   exit 1
 fi
+if [ ! -r "$DOCKER_OUTDIR/app/cacert.pem" ]; then
+  echo "ERROR: Expected CA bundle was not found: $DOCKER_OUTDIR/app/cacert.pem"
+  exit 1
+fi
 
 rm -rf "$APPDIR/usr/bin"/*
 cp -a "$DOCKER_OUTDIR/app"/. "$APPDIR/usr/bin"/
