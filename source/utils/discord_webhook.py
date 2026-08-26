@@ -5,7 +5,7 @@ from urllib.parse import urlencode, urlsplit
 from urllib.request import Request, urlopen
 
 from source.utils.paths import APP_VERSION
-from source.utils import params
+from source.utils import params as p
 
 
 WEBHOOK_ENV = "CGRINDER_DISCORD_WEBHOOK_URL"
@@ -1049,7 +1049,7 @@ class WebhookLogHandler(logging.Handler):
             self._add_field(fields, "Group", self._group_label(self.context["group"]))
             self._add_field(fields, "Focus", self._focus_label(self.context["team"]))
             self._add_field(fields, "Difficulty", self.context["difficulty"])
-            self._add_field(fields, "Arayashu", "Active" if params.HOS_MODE else "Inactive")
+            self._add_field(fields, "Arayashu", "Active" if p.HOS_MODE else "Inactive")
 
             if not self.compact_mode:
                 if event_floor is not None:
