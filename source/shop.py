@@ -17,6 +17,8 @@ for i in range(3, 6):
 
 TWO_ITEM_COMBOS = list(combinations_with_replacement(range(1, 5), 2))
 
+class ShopClear(Exception): pass
+
 
 enhance_cost = {
     1: 150,
@@ -571,7 +573,7 @@ def fuse():
             if p.SUPER == "supershop":
                 perform_clicks(to_click)
             return None
-        raise NotImplementedError
+        raise ShopClear
     else:
         return None
 
@@ -645,7 +647,7 @@ def fuse_loop():
                 if not result: return
                 else:
                     init_fuse() # open fusing
-    except NotImplementedError:
+    except ShopClear:
         close_panel()
 
         if p.TO_UPTIE:
@@ -691,6 +693,7 @@ def sell(gifts):
     while True:
         if balance() < sum(gifts.values()):
             Action(p.SUPER, click=(600, 585), ver="sell").execute(click)
+            time.sleep(0.2)
             found_flag = False
             if search_sell((920, 295, 790, 345)):
                 found_flag = True
