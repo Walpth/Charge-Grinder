@@ -5,6 +5,7 @@ from urllib.parse import urlencode, urlsplit
 from urllib.request import Request, urlopen
 
 from source.utils.paths import APP_VERSION
+from source.utils import params
 
 
 WEBHOOK_ENV = "CGRINDER_DISCORD_WEBHOOK_URL"
@@ -474,6 +475,7 @@ class WebhookLogHandler(logging.Handler):
         self.last_floor_duration = None
         self.last_run_duration = None
         self._last_sent = {}
+        self.run_durations = []
         self._refresh_runtime_options()
 
     def _read_bool_env(self, env_name):
@@ -519,6 +521,7 @@ class WebhookLogHandler(logging.Handler):
 
     def _reset_script_context(self):
         self.context.update(_CONTEXT_DEFAULT)
+        self.run_durations = []
         self._reset_run_timers()
 
     def _format_duration(self, seconds):
@@ -670,6 +673,8 @@ class WebhookLogHandler(logging.Handler):
         self.context["active_scope"] = "md"
         self.last_run_duration = None if self.run_started_at is None else max(0.0, now - self.run_started_at)
         self.last_floor_duration = None if self.floor_started_at is None else max(0.0, now - self.floor_started_at)
+        if self.last_run_duration != None:
+            self.run_durations.append(self.last_run_duration)
         current_floor = self.context["floor"]
         current_pack = self.context["pack"]
         if completed:
@@ -691,6 +696,13 @@ class WebhookLogHandler(logging.Handler):
         if self.compact_mode or current_floor is None:
             return run_event
         return [self._make_floor_event(current_floor, floor_description, current_pack), run_event]
+
+    def _total_run_duration(self):
+        return sum(self.run_durations) if self.run_durations else None
+
+    def _average_run_duration(self):
+        return sum(self.run_durations) / len(self.run_durations) if self.run_durations else None
+
 
     def _normalize_events(self, event):
         if event is None:
@@ -1038,6 +1050,7 @@ class WebhookLogHandler(logging.Handler):
             self._add_field(fields, "Group", self._group_label(self.context["group"]))
             self._add_field(fields, "Focus", self._focus_label(self.context["team"]))
             self._add_field(fields, "Difficulty", self.context["difficulty"])
+            self._add_field(fields, "Arayashu", "Active" if params.HOS_MODE else "Inactive")
 
             if not self.compact_mode:
                 if event_floor is not None:
@@ -1046,7 +1059,9 @@ class WebhookLogHandler(logging.Handler):
                     self._add_field(fields, "Pack Group", event_pack, inline=False)
 
             if event_name == "Run":
-                self._add_field(fields, "Total Run Time", self._format_duration(self.last_run_duration))
+                self._add_field(fields, "Current Run Time", self._format_duration(self.last_run_duration))
+                self._add_field(fields, "Total Run Time", self._format_duration(self._total_run_duration()))
+                self._add_field(fields, "Average Run Time", self._format_duration(self._average_run_duration()))
                 if not self.compact_mode:
                     self._add_field(fields, "Last Floor Time", self._format_duration(self.last_floor_duration))
             elif self.run_started_at is not None:
