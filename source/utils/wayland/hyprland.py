@@ -181,8 +181,14 @@ class HyprlandBackend(BaseCompositorBackend):
                 continue
             x = int(mon.get("x", 0))
             y = int(mon.get("y", 0))
-            w = int(mon.get("width", 0))
-            h = int(mon.get("height", 0))
+            try:
+                scale = float(mon.get("scale", 1.0) or 1.0)
+            except (TypeError, ValueError):
+                scale = 1.0
+            if scale <= 0:
+                scale = 1.0
+            w = int(round(int(mon.get("width", 0)) / scale))
+            h = int(round(int(mon.get("height", 0)) / scale))
             if w > 0 and h > 0:
                 result.append((x, y, w, h))
         if not result:

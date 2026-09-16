@@ -22,6 +22,8 @@ SOURCE_WINDOW = 2
 CURSOR_HIDDEN = 1
 CURSOR_EMBEDDED = 2
 
+SCALE_AXIS_TOLERANCE = 0.005
+
 
 class _PortalSetupError(WaylandBackendError):
     """Portal/session setup failed. Do not retry automatically."""
@@ -65,8 +67,27 @@ class _Frame:
 
 
 def _trim_to_frame(image: Any, frame_rect: tuple[int, int, int, int]) -> Any:
+    img_h, img_w = image.shape[:2]
     fw, fh = int(frame_rect[2]), int(frame_rect[3])
-    return image[:fh, :fw]
+    if fw <= 0 or fh <= 0 or img_w <= 0 or img_h <= 0:
+        return image
+
+    rx, ry = img_w / fw, img_h / fh
+    if abs(rx - ry) <= SCALE_AXIS_TOLERANCE * max(rx, ry):
+        return image
+
+    if image[-1].any() and image[:, -1].any():
+        return image
+    nonzero = image.any(axis=2)
+    cols = nonzero.any(axis=0).nonzero()[0]
+    rows = nonzero.any(axis=1).nonzero()[0]
+    if cols.size == 0 or rows.size == 0:
+        return image
+    right = int(cols.max()) + 1
+    bottom = int(rows.max()) + 1
+    if right >= img_w and bottom >= img_h:
+        return image
+    return image[:bottom, :right]
 
 
 def _crop_client(image: Any, frame_rect, client_rect, override_insets=None) -> Any:

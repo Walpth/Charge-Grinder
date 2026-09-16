@@ -216,11 +216,17 @@ def select_team():
         return
 
     win_moveTo(196, 480)
-    if now_rgb.button("arrow", conf=0.7):
-        gui.scroll(21)
+    for i in range(3):
+        if now_rgb.button("arrow", conf=0.7):
+            gui.scroll(20)
+            time.sleep(0.1)
+        else:
+            time.sleep(1)
+            break
+    else:
         time.sleep(1)
 
-    for i in range(4):
+    for i in range(7):
         coords = [gui.center(box) for box in LocateGray.locate_all(PTH[f"{affinity}_team"], region=REG["teams"], threshold=15, conf=0.85)]
         print(coords)
         sorted(coords, key=lambda coord: coord[1])
@@ -228,7 +234,7 @@ def select_team():
         if len(coords) > idx:
             win_click(coords[idx])
             break
-        elif i != 3:
+        elif i != 6:
             idx -= len(coords)
             gui.scroll(-10)
             time.sleep(0.3)
