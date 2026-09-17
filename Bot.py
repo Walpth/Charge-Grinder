@@ -261,7 +261,7 @@ def main_loop():
     p.MOVE_ANIMATION = False
     p.LVL = 1
     while True:
-        wait_while_condition(now.button("connecting"), timer=60)
+        wait_while_condition(lambda: now.button("connecting"), timer=60)
         if now.button("ServerError"):
             for _ in range(3):
                 time.sleep(6)
