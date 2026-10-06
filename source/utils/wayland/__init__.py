@@ -3,9 +3,10 @@ from __future__ import annotations
 import os
 from typing import Optional
 
-from .base import BaseCompositorBackend, WaylandBackendError, WindowError, WindowInfo
+from .base import BaseCompositorBackend, WaylandBackendError, WindowInfo
 from .hyprland import HyprlandBackend
 from .kwin import KWinBackend
+from .mango import MangoBackend
 from .mutter import MutterBackend
 from .pipewire_capture import (
     close_capture,
@@ -58,12 +59,14 @@ def _session_order() -> list[type[BaseCompositorBackend]]:
         ordered.append(HyprlandBackend)
     if os.environ.get("SWAYSOCK") or os.environ.get("I3SOCK"):
         ordered.append(SwayBackend)
+    if os.environ.get("MANGO_INSTANCE_SIGNATURE"):
+        ordered.append(MangoBackend)
     if "gnome" in desktop or "mutter" in desktop:
         ordered.append(MutterBackend)
     if "kde" in desktop or "plasma" in desktop or os.environ.get("KDE_FULL_SESSION"):
         ordered.append(KWinBackend)
 
-    for cls in (MutterBackend, HyprlandBackend, SwayBackend, KWinBackend):
+    for cls in (MutterBackend, HyprlandBackend, SwayBackend, MangoBackend, KWinBackend):
         if cls not in ordered:
             ordered.append(cls)
     return ordered
@@ -84,7 +87,7 @@ def _make_backend() -> BaseCompositorBackend:
                 set_default_source(backend.preferred_pipewire_source)
             return backend
 
-    supported = ", ".join(cls.name for cls in [KWinBackend, MutterBackend, HyprlandBackend, SwayBackend])
+    supported = ", ".join(cls.name for cls in [KWinBackend, MutterBackend, HyprlandBackend, SwayBackend, MangoBackend])
     raise WaylandBackendError(
         "No supported Wayland compositor backend detected. "
         f"Set WAYLAND_BACKEND to one of: {supported}."
