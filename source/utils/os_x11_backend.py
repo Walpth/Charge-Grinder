@@ -892,7 +892,8 @@ def check_window():
 def set_window():
     """
     Find window by p.LIMBUS_NAME, calculate its client center and set p.WINDOW
-    to a centered 16:9 region inside the client area (like Windows module).
+    to a centered 16:9 region for wide clients, or the full client area for
+    16:9/16:10 clients (like Windows module).
     """
     w = _find_window_by_name(p.LIMBUS_NAME)
     if not w:
@@ -906,26 +907,14 @@ def set_window():
 
     client_width, client_height = geom.width, geom.height
 
-    target_ratio = 16 / 9
-    if client_width / client_height > target_ratio:
-        target_height = client_height
-        target_width = int(target_height * target_ratio)
-    elif client_width / client_height < target_ratio:
-        target_width = client_width
-        target_height = int(target_width / target_ratio)
-    else:
-        target_width = client_width
-        target_height = client_height
-
     left, top = get_absolute_position(w)
-    left += (client_width - target_width) // 2
-    top += (client_height - target_height) // 2
+    left, top, target_width, target_height = p.resolve_window_rect(left, top, client_width, client_height)
 
     p.WINDOW = (left, top, target_width, target_height)
     p.SCREEN = get_virtual_screen_bounds()
     check_window()
 
-    if int(client_width / 16) != int(client_height / 9):
-        p.WARNING(f"Game window ({client_width} x {client_height}) is not 16:9\nIt is recommended to set the game to either\n1920 x 1080 or 1280 x 720")
+    if not p.is_supported_aspect(client_width, client_height):
+        p.WARNING(f"Game window ({client_width} x {client_height}) has an unsupported aspect ratio\nIt is recommended to set the game to 16:9 (1920 x 1080 or 1280 x 720)\nor 16:10 (2560 x 1600)")
 
     print("WINDOW:", p.WINDOW)

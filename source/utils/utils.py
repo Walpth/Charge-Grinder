@@ -29,8 +29,20 @@ else:
 class StopExecution(Exception): pass
 
 
-def screenshot(region=(0, 0, 1920, 1080)): # works only for cv2!
+def _expand_region(region):
+    """Grow a 1920x1080 reference region to cover the game's vertical canvas
+    expansion on taller-than-16:9 clients (e.g. 120 extra ref units at
+    2560x1600 fullscreen). The origin is preserved and only the height grows,
+    which keeps every anchor class (top / centered / bottom-anchored element)
+    inside the search area without having to classify the region."""
     x, y, w, h = region
+    extra = p.expand_extra_height()
+    if extra <= 0:
+        return region
+    return (x, y, w, h + extra)
+
+def screenshot(region=(0, 0, 1920, 1080)): # works only for cv2!
+    x, y, w, h = _expand_region(region)
     comp = p.WINDOW[2] / 1920
     return np.array(gui.screenshot(region=(
         round(p.WINDOW[0] + x*comp),
@@ -202,7 +214,7 @@ class Locate(): # if inputing np.ndarray, convert to BGR first!
         if isinstance(image, str):
             image = cv2.imread(image)
         if image is None:
-            image = screenshot(region=region)
+            image = screenshot(region=_expand_region(region))
         if not isinstance(image, np.ndarray):
             raise TypeError(f"Locate doesn't support image type '{type(image).__name__}'")
         return image
@@ -286,7 +298,7 @@ class Locate(): # if inputing np.ndarray, convert to BGR first!
 
     @classmethod
     def _match(cls, template, image, region, conf, method, **kwargs):
-        x_off, y_off, _, _ = region
+        x_off, y_off, _, _ = _expand_region(region)
         template, image = cls._convert(template, image)
         result = cv2.matchTemplate(image, template, method)
         match_w, match_h = template.shape[1], template.shape[0]
@@ -463,7 +475,7 @@ class SIFTMatcher:
 
     @staticmethod
     def _prepare_image(image, region):
-        x, y, w, h = region
+        x, y, w, h = _expand_region(region)
         comp = p.WINDOW[2] / 1920
         x_d, y_d, w_d, h_d = round(p.WINDOW[0] + x*comp), round(p.WINDOW[1] + y*comp), round(w*comp), round(h*comp)
 
@@ -473,7 +485,7 @@ class SIFTMatcher:
                 raise FileNotFoundError(f"Image not found: {image}")
             img = img[y_d:y_d+h_d, x_d:x_d+w_d].copy()
         elif image is None:
-            img = screenshot(region=region)
+            img = screenshot(region=(x, y, w, h))
         elif isinstance(image, np.ndarray):
             img = image[y_d:y_d+h_d, x_d:x_d+w_d].copy()
         else:

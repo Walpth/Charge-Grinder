@@ -245,6 +245,15 @@ Then you can run `App.py` to launch the application.
 
 <br clear="left" />
 
+<img align="left" src="ImageAssets/readme/wqxga.png" width="62%">
+<h3>2560x1600</h3>
+
+- For 16:10 laptop displays (WQXGA, e.g. 2560x1600 panels)
+- Use Fullscreen; the game expands its canvas vertically (no letterbox bars)
+- Template detection support is newer here — report any mis-clicks or undetected buttons
+
+<br clear="left" />
+
 # Run stats
 
 <img align="left" src="ImageAssets/readme/export.png" width="11%">
