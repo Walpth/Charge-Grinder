@@ -125,7 +125,7 @@ REG = {
     "trials"         : (   0,  615, 1920,   55),
     "buffs"          : (   0,  664, 1920,   52),
     "adversity"      : (  50,   58,  320,   70),
-    "projection"     : (   0,  713, 1920,  100),
+    "projection"     : (   0,  700, 1920,  100),
     "selectCount"    : (1790,  843,   30,   45),
     # regions not binded to an image
     "rewardCount!"   : (1494,  181,   23,   42),
