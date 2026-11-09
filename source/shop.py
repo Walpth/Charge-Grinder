@@ -149,19 +149,51 @@ def decide_fusion(target_tier, inventory, depth=0):
     return best_choice, best_missing
 
 
-def is_in_range(res, coord):
-    return res[0] - 103 < coord[0] < res[0] + 19 and res[1] - 105 < coord[1] < res[1] + 17
+ITEM_HALF = 61
+TIER_TO_BOX = (41, 39)
+TIER_TO_CENTER = (47, 36)
+ITEM_MARGIN = 56
 
-def inventory_check(reg, h, uptie_det=True):
+HOOKS = [1083, 1228, 1370, 1515]
+HOOKS_ALT = [1088, 1226, 1364, 1501]
+
+def is_in_range(res, coord):
+    return res[0] - 56 < coord[0] < res[0] + 66 and res[1] - 69 < coord[1] < res[1] + 53
+
+def inventory_check(reg, h=0, uptie_det=True, image=None, scroll_count=None, margin=0):
     coords_agg = {1: [], 2: [], 3: [], 4: []}
     coords     = {1: [], 2: [], 3: [], 4: []}
     have = {}
     uptie = {}
-    comp = p.WINDOW[2] / 1920
+    # comp = p.WINDOW[2] / 1920  # only the DEBUG lines use it
+    # stamp = time.time()  # DEBUG
+    # os.makedirs("data/fuse_shelf", exist_ok=True)  # DEBUG
 
-    fuse_shelf = screenshot(region=reg)
+    # def mark(img, point, color):  # DEBUG: cross at a 1920-space point
+    #     cv2.drawMarker(img, (int((point[0]-reg[0])*comp), int((point[1]-reg[1])*comp)), color, cv2.MARKER_CROSS, 24, 2)
+
+    # def snap(name, img, points=(), color=(255, 255, 255)):  # DEBUG
+    #     state = img.copy()
+    #     for point in points:
+    #         mark(state, point, color)
+    #     cv2.imwrite(f"data/fuse_shelf/{stamp}_{name}.png", state)
+
+    fuse_shelf = screenshot(region=reg) if image is None else image
+    # scan_marks = fuse_shelf.copy()  # DEBUG
     # cv2.imwrite(f"testing/fuse{time.time()}.png", fuse_shelf)
     image = amplify(fuse_shelf)
+    # gift_centres = []  # DEBUG
+
+    def selection_pos(x, y):
+        if scroll_count is None:
+            return x, y, h
+        view_height = to_px(REG["fuse_shelf"][3])
+        bottom = fuse_shelf.shape[0] - view_height
+        step = max(1, to_px(128))
+        local_y = to_px(y - reg[1])
+        up = max(0, min(scroll_count, round((bottom + view_height / 2 - local_y) / step)))
+        screen_y = REG["fuse_shelf"][1] + to_ref(local_y - bottom + up * step)
+        return x, round(screen_y), up
 
     for i in range(len(p.GIFTS)):
         if p.GIFTS[i]["sin"]:
@@ -174,11 +206,13 @@ def inventory_check(reg, h, uptie_det=True):
                 if gift in CACHE: template = CACHE[gift]
                 else: template = amplify(cv2.imread(PTH[gift]))
                 x, y = gui.center(LocateRGB.try_locate(template, image=image, region=reg, conf=0.87))
+                # mark(scan_marks, (x, y), (0, 0, 255))  # DEBUG
+                # gift_centres.append((x, y))  # DEBUG
                 # print(f"got {gift} at {x, y}")
-                have[gift] = (x, y, h)
+                have[gift] = selection_pos(x, y)
 
                 if uptie_det and gift in uptie_ego.keys():
-                    uptie_region = fuse_shelf[int((y-66-reg[1])*comp):int((y-22-reg[1])*comp), int((x-14-reg[0])*comp):int((x+55-reg[0])*comp)]
+                    uptie_region = crop(fuse_shelf, (x - 14, y - 66, 69, 44), origin=reg)
                     try:
                         if not LocateRGB.check(PTH["+"], image=uptie_region, wait=False):
                             uptie[gift] = enhance_cost[uptie_ego[gift]]
@@ -195,11 +229,13 @@ def inventory_check(reg, h, uptie_det=True):
             if gift in CACHE: template = CACHE[gift]
             else: template = amplify(cv2.imread(PTH[gift]))
             x, y = gui.center(LocateRGB.try_locate(template, image=image, region=reg, conf=0.86))
+            # mark(scan_marks, (x, y), (0, 255, 255))  # DEBUG
+            # gift_centres.append((x, y))  # DEBUG
             # print(f"got {gift}")
-            have[gift] = (x, y, h)
+            have[gift] = selection_pos(x, y)
 
             if uptie_det and p.KEYWORDLESS[gift] > 2:
-                uptie_region = fuse_shelf[int((y-66-reg[1])*comp):int((y-22-reg[1])*comp), int((x-14-reg[0])*comp):int((x+55-reg[0])*comp)]
+                uptie_region = crop(fuse_shelf, (x - 14, y - 66, 69, 44), origin=reg)
                 try:
                     if not LocateRGB.check(PTH["+"], image=uptie_region, wait=False):
                         uptie[gift] = enhance_cost[WORDLESS_MAP[gift]]
@@ -211,39 +247,68 @@ def inventory_check(reg, h, uptie_det=True):
         except gui.ImageNotFoundException:
             continue
 
+    # snap("1_gifts", fuse_shelf, gift_centres, (0, 0, 255))  # DEBUG
+
     found_aff = []
     for aff in p.GIFTS:
         found_aff += [gui.center(box) for box in LocateRGB.locate_all(PTH[aff["checks"][4]], region=reg, image=fuse_shelf, threshold=50, method=cv2.TM_SQDIFF_NORMED)]
 
     for i in range(4, 0, -1):
         found = [gui.center(box) for box in LocateRGB.locate_all(PTH[str(i)], region=reg, image=fuse_shelf, threshold=50, method=cv2.TM_SQDIFF_NORMED)]
+        # tier_centres = []  # DEBUG
 
         for res in found:
-            fuse_shelf = rectangle(fuse_shelf, (int(res[0] - 20 - reg[0]), int(res[1] - 22 - reg[1])), (int(res[0] + 102 - reg[0]), int(res[1] + 100 - reg[1])), (0, 0, 0), -1)
-            x, y = res
-            coords_agg[i].append((x, y, h))
+            bx, by = res[0] + TIER_TO_BOX[0], res[1] + TIER_TO_BOX[1]
+            fuse_shelf = rectangle(fuse_shelf, (int(bx - ITEM_HALF - reg[0]), int(by - ITEM_HALF - reg[1])), (int(bx + ITEM_HALF - reg[0]), int(by + ITEM_HALF - reg[1])), (0, 0, 0), -1)
+            x, y = res[0] + TIER_TO_CENTER[0], res[1] + TIER_TO_CENTER[1]  # badge -> item centre
+            # mark(scan_marks, (x, y), (255, 255, 255))  # DEBUG
+            # tier_centres.append((x, y))  # DEBUG
+            coords_agg[i].append(selection_pos(x, y))
             coords[i].append((x, y, h))
+
+        # snap(f"{6 - i}_tier{i}", fuse_shelf, tier_centres)  # DEBUG
 
     for res in found_aff:
         for i in range(1, 5):
             match = next((coord for coord in coords[i] if is_in_range(res, coord)), None)
             if match:
+                # mark(scan_marks, match, (0, 255, 0))  # DEBUG
                 coords[i].remove(match)
                 break
 
+    if margin:  # only items whose whole feature set is on screen: the rest are seen by another frame
+        top, bottom = reg[1] + margin, reg[1] + reg[3] - margin
+        coords = {tier: [c for c in found if top <= c[1] <= bottom] for tier, found in coords.items()}
+
+    if scroll_count is not None:
+        coords = {tier: [selection_pos(x, y) for x, y, _ in found] for tier, found in coords.items()}
+
+    # cv2.imwrite(f"data/fuse_shelf/{stamp}_6_marks.png", scan_marks)  # DEBUG
     return coords, coords_agg, have, uptie
 
 
-def browse(hook_x, step=140, adj=0, dur=0.3):
-    win_moveTo(hook_x, 480, tsize=(1, 1))
-    win_dragTo(hook_x, 480 - step + adj, duration=dur, hook=True, tsize=(1, 1))
+def scroll_to_top(hook_x):
+    if now_rgb.button("scroll", "scroll_full") and not now_rgb.button("scroll"):
+        win_moveTo(hook_x, 480, tsize=(1, 1))
+        while not now_rgb.button("scroll") and now_rgb.button("scroll", "scroll_full"):
+            print("scroll up to inventory top")
+            gui.scroll(2)
+            time.sleep(0.1)
+        time.sleep(0.4)
 
-def browse_fast(hook_x, up=False):
-    dy = -300 if not up else 300
-    x_noise = random.randint(-50, 50)
-    win_moveTo(hook_x + x_noise, 480)
-    # gui.scroll(dy//100)
-    win_dragTo(hook_x, 480 + dy, duration=0.1)
+def scan_shelf(on_frame, hook=HOOKS):
+    hook_x = random.choice(hook)
+    scroll_to_top(hook_x)
+    while True:
+        result = on_frame()
+        if result:
+            return result
+        if now_rgb.button("scroll.0") or not now_rgb.button("scroll", "scroll_full"):
+            return None
+        print("scrolling down")
+        win_moveTo(hook_x, 480, tsize=(1, 1))
+        gui.scroll(-3)
+        time.sleep(0.3)
 
 
 def close_panel():
@@ -256,73 +321,67 @@ def close_panel():
     if x > 750 and y < 830:
         win_moveTo(x, 841)
 
-def concat(dict1, dict2):
-    for key in dict2:
-        if key in dict1:
-            dict1[key].extend(dict2[key])
-        else:
-            dict1[key] = dict2[key]
-    return dict1
+def get_fuse_inventory():
+    scrollable = now_rgb.button("scroll", "scroll_full")
+    need_align_up = not now_rgb.button("scroll") and scrollable
 
-def get_inventory():
-    uptie = None
-    hook_x = random.choice([1083, 1228, 1370, 1515])
-    while not now_rgb.button("scroll.0") and now_rgb.button("scroll", "scroll_full"):
-        print("scroll down for inventory alignment")
-        browse_fast(hook_x)
-        time.sleep(0.5)
+    if scrollable:
+        hook_x = random.choice(HOOKS)
+        win_moveTo(hook_x, 480, tsize=(1, 1))
 
-    if now_rgb.button("scroll.0"):
-        h = 0
-        adj = 0
-        hook_x = random.choice([1083, 1228, 1370, 1515])
+    if need_align_up:
         while not now_rgb.button("scroll") and now_rgb.button("scroll", "scroll_full"):
-            if h == 0:
-                box = LocateGray.locate(PTH["gifts_owned"], region=REG["fuse_shelf"])
-                region = REG["fuse_shelf"]
-                if box:
-                    _, y = gui.center(box)
-                    y = max(295, min(777, y))
-                    region = (920, y, 790, 777 - y)
+            print("scroll up to inventory top")
+            gui.scroll(2)
+            time.sleep(0.1)
+        time.sleep(0.4)
 
-                coords, coords_agg, have, uptie = inventory_check(region, 0)
-                if box:
-                    break
-            else:
-                print("scroll up for invetory scan")
-                browse(hook_x, step=-140, adj=adj)
+    frame = screenshot(region=REG["fuse_shelf"])
+    # cv2.imwrite(f"data/fuse_shelf/{time.time()}.png", frame)  # DEBUG
+    frames = [frame]
+    scroll_count = 0
+    while scrollable and not now_rgb.button("scroll.0") and now_rgb.button("scroll", "scroll_full"):
+        print("scrolling down")
+        gui.scroll(-2)
+        time.sleep(0.3)
+        frame = screenshot(region=REG["fuse_shelf"])
+        # cv2.imwrite(f"data/fuse_shelf/{time.time()}.png", frame)  # DEBUG
+        frames.append(frame)
+        scroll_count += 1
 
-                if LocateGray.check(PTH["gifts_owned"], region=REG["fuse_shelf"], wait=False):
-                    break
+    height, width = frames[0].shape[:2]
+    offsets = [0]
+    template_h = height // 5
+    template_y = (height - template_h) // 2
+    for previous, current in zip(frames, frames[1:]):
+        template = cv2.cvtColor(current[template_y:template_y + template_h], cv2.COLOR_BGR2GRAY)
+        search = cv2.cvtColor(previous, cv2.COLOR_BGR2GRAY)
+        matches = cv2.matchTemplate(search, template, cv2.TM_CCOEFF_NORMED)
+        _, confidence, _, (_, match_y) = cv2.minMaxLoc(matches)
+        frame_shift = match_y - template_y
+        print("frame shift:", frame_shift, "confidence:", confidence)
+        if confidence < 0.80:
+            raise RuntimeError(f"Failed to align frames: confidence {confidence:.3f}") # eaten by oops
+        offsets.append(offsets[-1] + frame_shift)
 
-                new_coords, new_coords_agg, new_have, new_uptie = inventory_check(REG["fuse_shelf_peak"], h)
-                coords = concat(coords, new_coords)
-                coords_agg = concat(coords_agg, new_coords_agg)
-                have.update(new_have)
-                uptie.update(new_uptie)
+    shelf = np.zeros((height + offsets[-1], width, 3), dtype=np.float32)
+    for frame, y in zip(frames, offsets):
+        shelf[y:y + height] += frame
+    counts = np.zeros((shelf.shape[0], 1, 1), dtype=np.float32)
+    for frame, y in zip(frames, offsets):
+        counts[y:y + height] += 1
+    shelf = np.clip(shelf / counts, 0, 255).astype(np.uint8)
 
-                ck = LocateRGB.locate(PTH["height_ck"], region=(920, 585, 790, 165), method=1)
-                adj = 625 - gui.center(ck)[1] if ck else 0
-                print(adj)
-            h += 1
+    x, y, w, _ = REG["fuse_shelf"]
+    scan_region = (x, y, w, round(to_ref(shelf.shape[0])))
+    title = LocateGray.locate(PTH["gifts_owned"], region=scan_region, image=shelf)
+    if title:
+        top = max(0, to_px(title[1] - y))
+        shelf = shelf[top:].copy()
+        scan_region = (x, y + to_ref(top), w, round(to_ref(shelf.shape[0])))
 
-        # while not now_rgb.button("scroll") and now_rgb.button("scroll", "scroll_full"):
-        #     print("scroll up for alignment")
-        #     browse(step=-300, dur=0.05, pr_end=False)
-        #     time.sleep(0.5)
-    else:
-        box = LocateGray.locate(PTH["gifts_owned"], region=REG["fuse_shelf"])
-        region = REG["fuse_shelf"]
-        if box:
-            _, y = gui.center(box)
-            y = max(295, min(777, y))
-            region = (920, y, 790, 777 - y)
-
-        coords, coords_agg, have, uptie = inventory_check(region, 0)
-
-    if uptie is None:
-        raise RuntimeError
-
+    print("ready to pass to check!")
+    coords, coords_agg, have, uptie = inventory_check(scan_region, image=shelf, scroll_count=scroll_count)
     p.TO_UPTIE = uptie
     return coords, coords_agg, have
 
@@ -339,6 +398,8 @@ def actual_fuse(tier, coords):
     else: return missing
 
 def fuse_selected():
+    # os.makedirs("data/fuse_check", exist_ok=True)  # DEBUG
+    # cv2.imwrite(f"data/fuse_check/{time.time()}.png", screenshot(region=(240, 240, 600, 540)))  # DEBUG
     wait_while_condition(lambda: not now.button("Confirm.2"), lambda: win_click(1197, 876) if now.button("fuse") else None, timer=1.5)
     wait_while_condition(lambda: not now.button("Confirm"), lambda: gui.press("space") if now.button("Confirm.2") else None, timer=1.5)
     connection()
@@ -356,34 +417,33 @@ def perform_clicks(to_click):
         win_moveTo(1194, 841)
         time.sleep(0.2)
 
-    hook_x = random.choice([1083, 1228, 1370, 1515])
-    while not now_rgb.button("scroll.0") and now_rgb.button("scroll", "scroll_full"):
-        print("scroll down for inventory click alignment")
-        browse_fast(hook_x)
-        time.sleep(0.5)
+    scrollable = now_rgb.button("scroll", "scroll_full")
+    need_align_down = not now_rgb.button("scroll.0") and scrollable
+
+    if scrollable:
+        hook_x = random.choice(HOOKS)
+        win_moveTo(hook_x, 480, tsize=(1, 1))
+    
+    if need_align_down:
+        while not now_rgb.button("scroll.0") and now_rgb.button("scroll", "scroll_full"):
+            print("scroll down for inventory click alignment")
+            gui.scroll(-2)
+            time.sleep(0.1)
+        time.sleep(0.4)
 
     to_click = sorted(to_click, key=lambda x: x[2])
     h = 0
-    adj = 0
     for pos in to_click:
         if pos[2] - h > 0:
             print("iterating items for fuse")
             for _ in range(pos[2] - h):
-                browse(hook_x, step=-135, adj=adj)
-                ck = LocateRGB.locate(PTH["height_ck"], region=REG["fuse_shelf_low"])
-                adj = 625 - gui.center(ck)[1] if ck else 0
+                gui.scroll(2)
+                time.sleep(0.3)
             h = pos[2]
-            time.sleep(0.2)
         ClickAction(pos[:2], ver="forecast!").execute(click_rgb)
 
     fuse_selected()
     to_click.clear()
-
-    hook_x = random.choice([1083, 1228, 1370, 1515])
-    while not now_rgb.button("scroll") and now_rgb.button("scroll", "scroll_full"):
-        print("scroll up for alignment")
-        browse_fast(hook_x, up=True)
-        time.sleep(0.5)
 
 
 def set_affinity(i, teams=None):
@@ -424,48 +484,43 @@ def fuse_search(have):
     return advanced_fusing
 
 
-# fusion_available = (928, 304, 300, 82)
-def get_gifts(gifts, reg, is_fuse=False):
-    if not is_fuse:
-        fuse_shelf = screenshot(region=reg)
-        image = amplify(fuse_shelf)
+def get_gifts(gifts, reg, frame, margin=0, limit=None):
+    image = amplify(frame)
+    top, bottom = reg[1] + margin, reg[1] + reg[3] - margin
 
-    for gift in gifts:
-        if is_fuse:
-            fuse_shelf = screenshot(region=reg)
-            image = amplify(fuse_shelf)
+    for gift in list(gifts):
         try:
             if gift in CACHE: template = CACHE[gift]
             else: template = amplify(cv2.imread(PTH[gift]))
             x, y = gui.center(LocateRGB.try_locate(template, image=image, region=reg, conf=0.88))
-            print(f"got {gift}")
-            yield (x, y)
         except gui.ImageNotFoundException:
             continue
+        if not top <= y <= bottom or (limit is not None and y >= limit):
+            continue
+        print(f"got {gift}")
+        yield gift, (x, y)
 
-def click_gifts(gifts, reg, chain=None, is_fuse=False):
-    if is_fuse and LocateGray.check(PTH["gifts_owned"], region=REG["gifts_owned"], wait=False):
-        return True
+def click_gifts(gifts, reg, chain=None, margin=0, limit=None, frame=None, once=False):
+    if frame is None:
+        frame = screenshot(region=reg)
+    ignore = LocateRGB.locate_all(PTH["cannot_fuse"], region=reg, image=frame, threshold=80)
 
-    gift_searcher = get_gifts(gifts, reg, is_fuse=is_fuse)
-    for coord in gift_searcher:
-        ignore = LocateRGB.locate_all(PTH["cannot_fuse"], region=reg, threshold=80)
-        print(ignore)
-        if any(abs(gui.center(res)[0] - coord[0]) < 50 for res in ignore):
+    for gift, coord in get_gifts(gifts, reg, frame, margin=margin, limit=limit):
+        if any(abs(gui.center(res)[0] - coord[0]) < 50 and abs(gui.center(res)[1] - coord[1]) < ITEM_HALF for res in ignore):
             continue
 
-        print("got a gift for fusion!")
+        print("got a gift to click!")
         win_click(coord)
+        gifts.remove(gift)
         if chain is not None and callable(chain):
             chain()
         time.sleep(0.2)
-        if is_fuse and LocateGray.check(PTH["gifts_owned"], region=REG["gifts_owned"], wait=False):
-            print("all fused!")
+        if once:
             return True
     return False
 
 def get_fuse_list():
-    gift_list = p.GIFTS[0]["goal"]
+    gift_list = list(p.GIFTS[0]["goal"])
 
     for i in range(2, 5, 2):
         if not p.GIFTS[0].get(f"fuse{i}", False):
@@ -473,50 +528,44 @@ def get_fuse_list():
         gift_list += [name for name, tier in p.GIFTS[0][f"fuse{i}"].items() if tier is None]
     return gift_list
 
+def fuse_available_frame(gift_list):
+    reg = REG["fuse_shelf"]
+    frame = screenshot(region=reg)
+    label = LocateGray.locate(PTH["gifts_owned"], region=reg, image=frame)
+    limit = label[1] if label else None
+
+    if click_gifts(gift_list, reg, chain=fuse_selected, margin=ITEM_MARGIN, limit=limit, frame=frame, once=True):
+        return "fused"
+    if label and label[1] <= reg[1] + reg[3] - ITEM_MARGIN:
+        return "end"
+    return None
+
+
 def handle_available_fusion():
     print("checking available fusion...")
-    hook_x = random.choice([1083, 1228, 1370, 1515])
-    while not now_rgb.button("scroll") and now_rgb.button("scroll", "scroll_full"):
-        print("scroll up for alignment")
-        browse_fast(hook_x, up=True)
-        time.sleep(0.5)
+    hook_x = random.choice(HOOKS)
+    scroll_to_top(hook_x)
 
     if not now_rgb.button("fusion_available") or p.HOS_MODE:
-        return now_rgb.button("scroll", "scroll_full")
+        return
 
     gift_list = get_fuse_list()
     print(f"gifts to fuse: {gift_list}")
-    if not gift_list: return now_rgb.button("scroll", "scroll_full")
+    if not gift_list: return
 
-    if click_gifts(gift_list, REG["fuse_shelf_top"], chain=fuse_selected, is_fuse=True):
-        return now_rgb.button("scroll", "scroll_full")
-
-    if now_rgb.button("scroll", "scroll_full"):
-        h = 1
-        adj = 0
-        hook_x = random.choice([1083, 1228, 1370, 1515])
-        while not now_rgb.button("scroll.0") and now_rgb.button("scroll", "scroll_full"):
-            print("scroll down for available fusions tab")
-            browse(hook_x, adj=adj)
-            if click_gifts(gift_list, REG["fuse_shelf_top"], chain=fuse_selected, is_fuse=True):
-                return now_rgb.button("scroll", "scroll_full")
-            ck = LocateRGB.locate(PTH["height_ck"], region=REG["fuse_shelf_top"])
-            adj = 625 - gui.center(ck)[1] if ck else 0
-            h += 1
-    return False
+    while scan_shelf(lambda: fuse_available_frame(gift_list)) == "fused":
+        scroll_to_top(hook_x) # the fused gift is gone, so start over
+        if not now_rgb.button("fusion_available"):
+            print("all fused!")
+            break
+    scroll_to_top(hook_x)
 
 
 def fuse():
     time.sleep(0.2)
+    handle_available_fusion()
 
-    if handle_available_fusion():
-        hook_x = random.choice([1083, 1228, 1370, 1515])
-        while not now_rgb.button("scroll.0") and now_rgb.button("scroll", "scroll_full"):
-            print("scroll down for invetory scan alignment")
-            browse_fast(hook_x)
-            time.sleep(0.5)
-
-    coords, coords_agg, have = get_inventory()
+    coords, coords_agg, have = get_fuse_inventory()
     to_click = []
     fuse_type = 0
     got_all = False
@@ -663,21 +712,16 @@ def power_up():
         wait_while_condition(lambda: not now.button("power"), lambda: gui.press("space"), timer=1.5)
 
 def get_uptie_inventory(gift_list):
-    click_gifts(gift_list, REG["fuse_shelf"], chain=power_up)
-    if now_rgb.button("scroll", "scroll_full"):
-        h = 1
-        adj = 0
-        hook_x = random.choice([1083, 1228, 1370, 1515])
-        while not now_rgb.button("scroll.0") and now_rgb.button("scroll", "scroll_full"):
-            print("scroll down for enhance click")
-            browse(hook_x, adj=adj)
-            click_gifts(gift_list, REG["fuse_shelf_low"], chain=power_up)
-            ck = LocateRGB.locate(PTH["height_ck"], region=REG["fuse_shelf_low"])
-            adj = 625 - gui.center(ck)[1] if ck else 0
-            h += 1
+    pending = list(gift_list)
 
-def search_sell(reg):
-    coords, _, _, _ = inventory_check(reg, 0, uptie_det=True)
+    def on_frame():
+        click_gifts(pending, REG["fuse_shelf"], chain=power_up, margin=ITEM_MARGIN)
+        return not pending # everything enhanced
+
+    scan_shelf(on_frame, hook=HOOKS_ALT)
+
+def search_sell():
+    coords, _, _, _ = inventory_check(REG["fuse_shelf"], 0, uptie_det=False, margin=ITEM_MARGIN)
     for i in range(4, 0, -1):
         if coords[i] != []:
             win_click(coords[i][0][:2])
@@ -699,28 +743,9 @@ def sell(gifts):
 
         if money < sum(gifts.values()):
             Action(p.SUPER, click=(600, 585), ver="sell").execute(click)
-            time.sleep(0.4)
-            found_flag = False
-            if search_sell((920, 295, 790, 345)):
-                found_flag = True
-            elif now_rgb.button("scroll", "scroll_full"):
-                hook_x = random.choice([1088, 1226, 1364, 1501])
-                while not now_rgb.button("scroll.0") and now_rgb.button("scroll", "scroll_full"):
-                    print("scroll down for sell scan")
-                    browse_fast(hook_x)
-                    time.sleep(0.5)
-                adj = 0
-                hook_x = random.choice([1088, 1226, 1364, 1501])
-                while not now_rgb.button("scroll") and now_rgb.button("scroll", "scroll_full"):
-                    if search_sell((920, 585, 790, 165)):
-                        found_flag = True
-                        break
-                    print("scroll up for sell click")
-                    browse(hook_x, step=-165, adj=adj)
-                    ck = LocateRGB.locate(PTH["height_ck"], region=(920, 585, 790, 165))
-                    adj = 618 - gui.center(ck)[1] if ck else 0
-
-            if found_flag: continue
+            time.sleep(0.6)
+            if scan_shelf(search_sell, hook=HOOKS_ALT):
+                continue
 
             close_panel()
             return False # nothing to sell
@@ -757,24 +782,29 @@ def enhance(gifts, floor1=False):
 
 
 ### Shop shelf-related logic
+COST_REG = (857, 175, 99, 57)
+COST_TPL = {}
+
+def read_cost():
+    image = screenshot(region=COST_REG)
+    digits = []
+    for i in range(9, -1, -1):
+        if i not in COST_TPL:
+            COST_TPL[i] = cv2.imread(PTH[f"cost{i}"])
+        pos = [gui.center(box) for box in LocateRGB.locate_all(COST_TPL[i], image=image, region=COST_REG, threshold=7, conf=0.9, method=cv2.TM_SQDIFF_NORMED)]
+        for coord in pos:
+            if all(abs(coord[0] - existing_coord) > 7 for _, existing_coord in digits):
+                digits.append((i, coord[0]))
+    digits = sorted(digits, key=lambda x: x[1])
+    return int("".join(str(d) for d, _ in digits) or -1)
+
 def balance():
     answer_me = True
     bal = -1
     start_time = time.time()
-    # gui.screenshot(f"cost{time.time()}.png", region=(857, 175, 99, 57)) # debugging
     while bal == -1:
         if time.time() - start_time > 20: raise RuntimeError("Infinite loop exited")
-        digits = []
-        for i in range(9, -1, -1):
-            pos = [gui.center(box) for box in LocateRGB.locate_all(PTH[f"cost{i}"], region=(857, 175, 99, 57), threshold=7, conf=0.9, method=cv2.TM_SQDIFF_NORMED)]
-            for coord in pos:
-                if all(abs(coord[0] - existing_coord) > 7 for _, existing_coord in digits):
-                    digits.append((i, coord[0]))
-        digits = sorted(digits, key=lambda x: x[1])
-
-        bal = ""
-        for i in digits: bal += str(i[0])
-        bal = int(bal or -1)
+        bal = read_cost()
         if bal != -1 and bal < 300 and answer_me:
             time.sleep(0.2)
             answer_me = False # you game me an answer, but not your own
@@ -783,6 +813,7 @@ def balance():
     if p.LVL > 10:
         bal = apply_inflation(bal)
     return bal
+
 
 def apply_inflation(value):
     if 13 > p.LVL > 10:
@@ -897,12 +928,14 @@ def buy_some(rerolls=1, priority=False):
             else: # buy only necessary stuff
                 buy_known(aff)
         if len(LocateRGB.locate_all(PTH["purchased"], region=REG["buy_shelf"], threshold=100)) == 8: break
-        if rerolls and balance() >= 200:
+        bal = balance()
+        if rerolls and bal >= 200:
             rerolls -= 1
             win_click(1489, 177, tsize=(180, 53))
             connection()
             time.sleep(0.1)
-        elif balance() < 120: return
+        elif bal < 120: return
+
 
 def buy(missing):
     # cv2.imwrite(f"data/buy/{time.time()}.png", screenshot(region=REG["buy_shelf"]))
@@ -998,14 +1031,18 @@ def buy_skill3():
         return
 
     ClickAction((coord[0], coord[1] - 120), ver="replace").execute(click)
-    win_click(1442, 497)
-    win_click(1187, 798)
-    if not wait_while_condition(lambda: not loc.button("connecting", wait=0.5), lambda: win_click(1187, 798), timer=1):
-        win_click(953, 497)
+    for slot, timer in (((1442, 497), 1), ((953, 497), 2)):
+        win_click(slot)
         win_click(1187, 798)
-        if not wait_while_condition(lambda: not loc.button("connecting", wait=0.5), lambda: win_click(1187, 798), timer=2):
-            win_click(772, 800)
-            return
+        if wait_while_condition(
+            lambda: now.button("replace"),
+            lambda: win_click(1187, 798) if now.button("replace") else None,
+            interval=0.1, timer=timer
+        ):
+            break
+    else:
+        win_click(772, 800)
+        return
     connection()
 
 

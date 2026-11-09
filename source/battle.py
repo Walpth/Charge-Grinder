@@ -297,7 +297,7 @@ def select(sinners):
     input_with_fallback(
         "space",
         lambda: win_click(1728, 884, tsize=(200,  50)),
-        lambda: loc.button("loading", wait=5)
+        lambda: wait_while_condition(lambda: now.button("TOBATTLE"), timer=3)
     )
     loading_halt()
     return True
@@ -393,6 +393,7 @@ def fight(lux=False):
         max_defense = min(((len(p.SELECTED) - p.DEAD + int(p.DEAD == 0)) // 2), 5)
 
     while True:
+        print("battle loop")
         ck = False
         if loc.button("winrate", wait=1):
             time.sleep(0.1)
@@ -442,12 +443,14 @@ def fight(lux=False):
             event()
 
         if now.button("ego_warning"): # skip corrosion
+            print("ego corrosion detected")
             ck = True
             gui.mouseDown()
             wait_while_condition(lambda: loc.button("ego_warning", wait=1), interval=0)
             gui.mouseUp()
 
         if (ego_image := is_ego()) is not None: # skip EGO animation
+            print("ego detected")
             ck = True
             gui.mouseDown()
             wait_while_condition(lambda: LocateRGB.check(ego_image, region=REG["ego_usage"], wait=1), interval=0)

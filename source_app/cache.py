@@ -21,7 +21,7 @@ class CacheWorker(QObject):
         keywordless = list(settings['keywordless'].keys())
         if settings['infinity']:
             keywordless += ["lunarmemory", "slashmemory", "piercememory", "bluntmemory"]
-        if settings['hos_mode']:
+        if any(settings['hos_mode'].values()):
             keywordless += ["spiderweb"]
         gifts |= set(keywordless)
         return list(gifts)

@@ -87,7 +87,7 @@ class SettingsManager(QObject):
     
     def get_config(self, key):
         config = self.data.get(self.config, {})
-        return config.get(str(key), [] if key != 7 else {})
+        return config.get(str(key), {} if key in (7, 10) else [])
 
     def _normalize_webhook(self, webhook_data, clean_unknown=False):
         source = webhook_data if isinstance(webhook_data, dict) else {}
@@ -211,12 +211,11 @@ class SettingsManager(QObject):
             return [list1, list2, dict1, dict2]
         
         def is_valid_settings_structure(value):
-            if not (isinstance(value, list) and len(value) == 18): return False
+            if not (isinstance(value, list) and len(value) == 17): return False
             for i in range(7):
                 if not isinstance(value[i], bool): return False
             for i in range(7, 17):
                 if not (isinstance(value[i], int) and not isinstance(value[i], bool) and 0 <= value[i] <= 3): return False
-            if not isinstance(value[17], bool): return False
             return True
         
         def is_valid_cards_structure(value):
@@ -233,7 +232,7 @@ class SettingsManager(QObject):
                 continue
 
             # 7 team floors + keywodless gifts + grace/extra + reward cards
-            config_entires = {f"{i}" for i in range(10)}
+            config_entires = {f"{i}" for i in range(11)}
             data[config] = self.clean_entries(data[config], config_entires)
 
             for key in list(data[config].keys()):
@@ -258,11 +257,6 @@ class SettingsManager(QObject):
                             del data[config][key][id]
                 elif idx == 8:
                     val = data[config][key]
-                    if isinstance(val, list) and len(val) == 18:
-                        if isinstance(val[7], bool) and not isinstance(val[8], bool):
-                            migrated = val[:7] + val[8:] + [val[7]]
-                            data[config][key] = migrated
-                            val = migrated
                     if not is_valid_settings_structure(val):
                         corrupted_data.add("grace selection, other settings")
                         del data[config][key]
@@ -272,6 +266,22 @@ class SettingsManager(QObject):
                         corrupted_data.add("reward card priority")
                         del data[config][key]
                         continue
+                elif idx == 10:
+                    value = data[config][key]
+                    if not isinstance(value, dict):
+                        corrupted_data.add("Arayashu team settings")
+                        del data[config][key]
+                        continue
+                    valid_teams = {str(i) for i in range(7)}
+                    invalid_teams = set(value) - valid_teams
+                    for team in invalid_teams:
+                        del value[team]
+                    for team in list(value):
+                        if not isinstance(value[team], bool):
+                            del value[team]
+                            invalid_teams.add(team)
+                    if invalid_teams:
+                        corrupted_data.add("Arayashu team settings")
         
         if "TEAMS" not in data: pass
         elif not isinstance(data["TEAMS"], dict):
@@ -318,7 +328,7 @@ class SettingsManager(QObject):
             del data["AFFINITY"]
 
         def is_valid_extra_structure(extra_data):
-            if not (isinstance(extra_data, list) and len(extra_data) == 9):
+            if not (isinstance(extra_data, list) and len(extra_data) == 8):
                 return False
             counts = extra_data[:3]
             if counts[0] == -1: counts[0] = 9999 # only needed for checks

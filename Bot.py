@@ -384,7 +384,7 @@ def execute_me(count, count_exp, count_thd, teams, settings, hard, app, warning)
     p.CARD = settings['card']
     p.WISHMAKING = settings['wishmaking']
     p.WINRATE = settings['winrate']
-    p.HOS_MODE = settings['hos_mode']
+    p.HOS_MODE = False
     p.EXTREME = settings['infinity']
     p.APP = app
     p.WARNING = warning
@@ -415,6 +415,7 @@ def execute_me(count, count_exp, count_thd, teams, settings, hard, app, warning)
 
             for _ in range(count):
                 team = next(rotator)
+                p.HOS_MODE = settings['hos_mode'].get(str(team), False)
 
                 completed = False
                 while not completed:

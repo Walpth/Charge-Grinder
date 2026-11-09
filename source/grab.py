@@ -206,6 +206,7 @@ def grab_card():
     Returns whether the card was selected or not
     '''
     if not now.button("encounterreward"): return False
+    print("grab card check")
 
     win_moveTo(1000, 900)
     now_click.button("Cancel") # if was misclicked
@@ -227,10 +228,10 @@ def grab_card():
 def confirm():
     '''Function to confirm EGO gift pop-ups'''
     if not now.button("Confirm"): return False
+    print("confirming gift")
     gui.press("space")
     time.sleep(0.3)
-    if now.button("Confirm"):
-        gui.press("space")
+    now_click.button("Confirm")
     return True
 
 

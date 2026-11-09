@@ -76,8 +76,10 @@ def event():
             }
             if any(matches.values()):
                 for prob in PROBS:
-                    if now_click.button(prob, "probs"):
-                        click.button("Commence")
+                    if not now_click.button(prob, "probs"):
+                        continue
+                    
+                    if click.button("Commence"):
                         time.sleep(2)
                         break
         

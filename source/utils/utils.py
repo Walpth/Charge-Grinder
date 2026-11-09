@@ -47,6 +47,24 @@ def rectangle(image, point1, point2, color, type):
     x2, y2 = int(x2*comp), int(y2*comp)
     return cv2.rectangle(image, (x1, y1), (x2, y2), color, type)
 
+NOTCH_PX = 64
+
+def to_px(value):
+    return int(round(value * (p.WINDOW[2] / 1920)))
+
+def to_ref(pixels):
+    return pixels / (p.WINDOW[2] / 1920)
+
+def crop(image, box, origin=(0, 0)):
+    comp = p.WINDOW[2] / 1920
+    x, y, w, h = box
+    ox, oy = origin[:2]
+    height, width = image.shape[:2]
+    x1, x2 = (min(max(int(v * comp), 0), width) for v in (x - ox, x + w - ox))
+    y1, y2 = (min(max(int(v * comp), 0), height) for v in (y - oy, y + h - oy))
+    return image[y1:y2, x1:x2]
+
+
 def win_get_position():
     x, y = gui.get_position()
     inv_comp = 1920 / p.WINDOW[2]

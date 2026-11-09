@@ -364,6 +364,10 @@ class MyApp(QWidget):
             avoid_floors = {}
         return priority, avoid, priority_floors, avoid_floors
 
+    def set_hos_mode(self):
+        states = self.sm.get_config(10)
+        self.hos_mode.setChecked(states.get(str(self.team), False))
+
     def init_widgets(self):
         for i in range(2):
             combo = QComboBox()
@@ -866,6 +870,7 @@ class MyApp(QWidget):
         self.set_affinity_buttons(self.selected_affinity[self.team])
         self.activate_ego_gifts(self.sm.get_config(7))
         self.set_buttons_active(self.sm.get_config(8))
+        self.set_hos_mode()
         self.set_card_buttons(self.sm.get_config(9))
         self.overlay.raise_()
 
@@ -904,9 +909,6 @@ class MyApp(QWidget):
                 self.buttons[f"on{i + 7}"].setChecked(False)
                 self.buttons[f"on{i + 7}"].setIcon(QIcon())
 
-            if len(state) > 8:
-                self.hos_mode.setChecked(bool(state[8]))
-    
     def save_affinity(self):
         state = dict()
         for i in range(7):
@@ -917,7 +919,9 @@ class MyApp(QWidget):
         extra = [self.count, self.count_exp, self.count_thd]
         for i in range(5):
             extra.append(self.buttons[f"on{i + 7}"].isChecked())
-        extra.append(self.hos_mode.isChecked())
+        hos_states = self.sm.get_config(10)
+        hos_states[str(self.team)] = self.hos_mode.isChecked()
+        self.sm.set_config(10, hos_states)
         self.sm.set_extra(extra)
         self.sync_webhook_settings(show_message=False)
         self.sm.save_settings()
@@ -946,6 +950,7 @@ class MyApp(QWidget):
                 lbl.hide()
         self.activate_ego_gifts(self.sm.get_config(7))
         self.set_buttons_active(self.sm.get_config(8))
+        self.set_hos_mode()
         self.set_card_buttons(self.sm.get_config(9))
 
     def set_lux(self):
@@ -1256,6 +1261,9 @@ class MyApp(QWidget):
         self.sm.set_config(self.team, (self.priority, self.avoid, self.priority_floors, self.avoid_floors))
         self.sm.set_config(7, {str(id): state for id, state in self.keywordless.items()})
         self.sm.set_config(8, self.get_config_buttons())
+        hos_states = self.sm.get_config(10)
+        hos_states[str(self.team)] = self.hos_mode.isChecked()
+        self.sm.set_config(10, hos_states)
         self.sm.set_config(9, self.get_cards())
         self.sm.save_settings()
         self.ego_panel.hide()
@@ -1275,7 +1283,6 @@ class MyApp(QWidget):
             activated.append(self.buttons[f'on{i}'].isChecked())
         for i in range(10):
             activated.append(getattr(self.buttons[f'buff{i}'], 'config', {}).get('state', 0))
-        activated.append(self.hos_mode.isChecked())
         return activated
     
     def ask_csv(self):
@@ -1308,8 +1315,6 @@ class MyApp(QWidget):
     
     def set_buttons_active(self, states):
         if not states: return
-        if len(states) == 18 and isinstance(states[7], bool) and not isinstance(states[8], bool):
-            states = states[:7] + states[8:] + [states[7]]
         on_buttons = [self.buttons[f'on{i}'] for i in range(7)]
         buff_buttons = [self.buttons[f'buff{i}'] for i in range(10)]
         buttons = on_buttons + buff_buttons
@@ -1326,8 +1331,6 @@ class MyApp(QWidget):
             button.setIconSize(button.size())
             if 'state' in getattr(button, 'config', {}):
                 button.config['state'] = int(state)
-        if len(states) > 17:
-            self.hos_mode.setChecked(bool(states[17]))
 
 
     def activate_ego_gifts(self, data):
@@ -1428,6 +1431,7 @@ class MyApp(QWidget):
 
         self.priority_team.setPixmap(QPixmap(Bot.APP_PTH[f'team{self.selected_affinity[self.team][0]}']))
         self.reset_to_defaults(self.team, default=False)
+        self.set_hos_mode()
         self.set_selected_buttons(self.sinner_selections[self.team])
         self.set_affinity_buttons(self.selected_affinity[self.team])
     
@@ -1754,9 +1758,12 @@ class MyApp(QWidget):
             'enkephalin' : self.buttons['on3'].isChecked() if not self.is_lux else self.buttons['on9'].isChecked(),
             'skip'       : self.buttons['on4'].isChecked(),
             'wishmaking' : self.buttons['on5'].isChecked(),
-            'winrate'    : self.hard or self.buttons['on6'].isChecked() if not p.HOS_MODE else self.buttons['on6'].isChecked(), # Thanks to @zombpr for finding this
+            'winrate'    : self.hard or self.buttons['on6'].isChecked() if not self.hos_mode.isChecked() else self.buttons['on6'].isChecked(), # Thanks to @zombpr for finding this
             'infinity'   : self.hard and self.buttons['on6'].isChecked(),
-            'hos_mode'   : self.hos_mode.isChecked(),
+            'hos_mode'   : {
+                **self.sm.get_config(10),
+                str(self.team): self.hos_mode.isChecked()
+            },
             'buff'       : [getattr(self.buttons[f'buff{i}'], 'config', {}).get('state', 0) for i in range(10)],
             'card'       : self.get_cards(),
             'keywordless': {Bot.WORDLESS[id]['name']: state for id, state in self.keywordless.items()}
