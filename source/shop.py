@@ -188,11 +188,19 @@ def inventory_check(reg, h=0, uptie_det=True, image=None, scroll_count=None, mar
         if scroll_count is None:
             return x, y, h
         view_height = to_px(REG["fuse_shelf"][3])
-        bottom = fuse_shelf.shape[0] - view_height
+        band = to_px(ITEM_MARGIN)
         step = max(1, to_px(128))
+        scroll_max = fuse_shelf.shape[0] - view_height
+        scroll_min = -to_px(reg[1] - REG["fuse_shelf"][1])
         local_y = to_px(y - reg[1])
-        up = max(0, min(scroll_count, round((bottom + view_height / 2 - local_y) / step)))
-        screen_y = REG["fuse_shelf"][1] + to_ref(local_y - bottom + up * step)
+
+        def view_top(up):
+            return max(scroll_min, scroll_max - up * step)
+
+        ups = range(scroll_count + 1)
+        up = next((k for k in ups if band <= local_y - view_top(k) <= view_height - band),
+                    min(ups, key=lambda k: abs(local_y - view_top(k) - view_height / 2)))  # fallback
+        screen_y = REG["fuse_shelf"][1] + to_ref(local_y - view_top(up))
         return x, round(screen_y), up
 
     for i in range(len(p.GIFTS)):
