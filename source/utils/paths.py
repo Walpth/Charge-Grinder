@@ -55,7 +55,7 @@ else:
 REG = {
     # Bot.py
     "Drive"          : (1413,  909,  116,   94),
-    "MD"             : ( 528,  354,  279,  196),
+    "MD"             : ( 539,  266,  247,  126),
     "Start"          : (1473,  657,  315,  161),
     "resume"         : ( 794,  567,  336,   63),
     "enterInvert"    : ( 943,  669,  382,  106),
@@ -298,6 +298,7 @@ PACKS = {
     'LCBRegularCheckupBokGak'     : ((), (4, 5)),
     'TwiningThreads'              : ((5,), (5,)),
     'NocturnalSweepingBokGak'     : ((), (4, 5)),
+    'TheWedgeDawnbreak'           : ((5,), (5,)),
     'SlicersDicers'               : ((5,), (4,)),
     'TobeCleaved'                 : ((2, 3), (1, 2)),
     'PiercersPenetrators'         : ((5,), (4,)),

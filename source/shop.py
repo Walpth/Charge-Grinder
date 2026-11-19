@@ -300,7 +300,7 @@ def scroll_to_top(hook_x):
         win_moveTo(hook_x, 480, tsize=(1, 1))
         while not now_rgb.button("scroll") and now_rgb.button("scroll", "scroll_full"):
             print("scroll up to inventory top")
-            gui.scroll(2)
+            gui.scroll(3)
             time.sleep(0.1)
         time.sleep(0.4)
 
@@ -329,32 +329,42 @@ def close_panel():
     if x > 750 and y < 830:
         win_moveTo(x, 841)
 
+
+def get_scrolly_position() -> tuple: # 700
+    scroll_position = gui.center(LocateGray.locate(PTH["scroll"], region=REG["scroll_full"]))
+    if scroll_position is None:
+        raise RuntimeError("Failed to locate scroll position")
+    return scroll_position[1]
+
+
 def get_fuse_inventory():
     scrollable = now_rgb.button("scroll", "scroll_full")
     need_align_up = not now_rgb.button("scroll") and scrollable
 
     if scrollable:
         hook_x = random.choice(HOOKS)
-        win_moveTo(hook_x, 480, tsize=(1, 1))
-
-    if need_align_up:
-        while not now_rgb.button("scroll") and now_rgb.button("scroll", "scroll_full"):
-            print("scroll up to inventory top")
-            gui.scroll(2)
-            time.sleep(0.1)
-        time.sleep(0.4)
+        if need_align_up:
+            scroll_to_top(hook_x)
+        else:
+            win_moveTo(hook_x, 480, tsize=(1, 1))
 
     frame = screenshot(region=REG["fuse_shelf"])
     # cv2.imwrite(f"data/fuse_shelf/{time.time()}.png", frame)  # DEBUG
     frames = [frame]
     scroll_count = 0
-    while scrollable and not now_rgb.button("scroll.0") and now_rgb.button("scroll", "scroll_full"):
+    while scrollable and now_rgb.button("scroll", "scroll_full"):
         print("scrolling down")
         gui.scroll(-2)
         time.sleep(0.3)
+        if abs(700 - get_scrolly_position()) < 5:
+            break
+
         frame = screenshot(region=REG["fuse_shelf"])
         # cv2.imwrite(f"data/fuse_shelf/{time.time()}.png", frame)  # DEBUG
         frames.append(frame)
+
+        if scroll_count > 134: # quiz: what assumption leads to this number?
+            break
         scroll_count += 1
 
     height, width = frames[0].shape[:2]
@@ -433,9 +443,10 @@ def perform_clicks(to_click):
         win_moveTo(hook_x, 480, tsize=(1, 1))
     
     if need_align_down:
+        print("this should never be called")
         while not now_rgb.button("scroll.0") and now_rgb.button("scroll", "scroll_full"):
             print("scroll down for inventory click alignment")
-            gui.scroll(-2)
+            gui.scroll(-3)
             time.sleep(0.1)
         time.sleep(0.4)
 

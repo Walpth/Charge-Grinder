@@ -167,28 +167,14 @@ def getActiveWindowTitle():
     return buff.value
 
 def center(target=None):
-    """
-    Returns the center coordinates of:
-    - A window (if target is a string title)
-    - A screen region (if target is a box tuple (left, top, width, height))
-    - The primary screen (if no target)
-    """
-    if isinstance(target, str):  # Window title
-        hwnd = user32.FindWindowW(None, target)
-        if not hwnd:
-            raise ValueError(f"Window not found: {target}")
-        rect = wintypes.RECT()
-        user32.GetWindowRect(hwnd, ctypes.byref(rect))
-        return (
-            (rect.left + rect.right) // 2,
-            (rect.top + rect.bottom) // 2
-        )
-    elif isinstance(target, (tuple, list)) and len(target) >= 4:  # Region box
+    """Return the center point of a rectangle (x, y, width, height) as (cx, cy)."""
+    if target is None:
+        return None
+    elif isinstance(target, (tuple, list)) and len(target) >= 4:
         left, top, width, height = target[:4]
         return (left + width // 2, top + height // 2)
-    else:  # Primary screen center
-        width, height = get_screen_size()
-        return (width // 2, height // 2)
+    else:
+        raise ValueError(f"Invalid target for center(): {target}")
 
 
 def get_virtual_screen_bounds():

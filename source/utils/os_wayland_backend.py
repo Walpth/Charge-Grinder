@@ -88,25 +88,14 @@ def getActiveWindowTitle():
 
 
 def center(target=None):
-    """
-    Returns the center coordinates of:
-     - A window (if target is string title)
-     - A region (if target is a box tuple (left, top, width, height))
-     - The primary screen (if no target)
-    """
-    if isinstance(target, str):
-        win = wl.find_window(target)
-        if not win:
-            raise ValueError(f"Window not found: {target}")
-        return win.left + win.width // 2, win.top + win.height // 2
-
+    """Return the center point of a rectangle (x, y, width, height) as (cx, cy)."""
+    if target is None:
+        return None
     elif isinstance(target, (tuple, list)) and len(target) >= 4:
         left, top, width, height = target[:4]
         return (left + width // 2, top + height // 2)
-
     else:
-        width, height = get_screen_size()
-        return (width // 2, height // 2)
+        raise ValueError(f"Invalid target for center(): {target}")
 
 
 def get_virtual_screen_bounds():
