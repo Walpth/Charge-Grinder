@@ -298,7 +298,7 @@ _uinput_init_started = False
 _uinput_ready = threading.Event()
 _uinput_lock = threading.Lock()
 
-def clone_device(path: str) -> UInput:
+def clone_device(path: str, *, is_mouse=False) -> UInput:
     real = evdev.InputDevice(path)
     caps = real.capabilities()
     
@@ -312,6 +312,9 @@ def clone_device(path: str) -> UInput:
     elif e.MSC_SCAN not in caps[e.EV_MSC]:
         caps[e.EV_MSC].append(e.MSC_SCAN)
 
+    if is_mouse and e.REL_WHEEL not in caps.get(e.EV_REL, []):
+        caps.setdefault(e.EV_REL, []).append(e.REL_WHEEL)
+
     if e.EV_REP not in caps:
         caps[e.EV_REP] = [e.REP_DELAY, e.REP_PERIOD]
     
@@ -324,8 +327,12 @@ def clone_device(path: str) -> UInput:
         "phys": real.phys if real.phys else "usb-0000:00:14.0-1/input0",
         "input_props": real.input_props(),
     }
-    # raise Exception
-    device = UInput.from_device(real, filtered_types=(e.EV_SYN, e.EV_FF, e.EV_REP), **kwargs)
+    events = {
+        ev_type: codes
+        for ev_type, codes in caps.items()
+        if ev_type not in (e.EV_SYN, e.EV_FF, e.EV_REP)
+    }
+    device = UInput(events=events, **kwargs)
     _print_device_data(kwargs)
     return device
 
@@ -388,7 +395,7 @@ def _pick_device_paths():
             rel_caps = caps.get(e.EV_REL, [])
 
             # 1. Mouse Selection (Must have Rel X/Y)
-            if e.REL_X in rel_caps and e.REL_Y in rel_caps:
+            if e.REL_X in rel_caps and e.REL_Y in rel_caps and e.REL_WHEEL in rel_caps:
                 if _is_touchpad(caps, dev.name):
                     continue
 
@@ -448,7 +455,7 @@ def _init_uinput_devices():
         if mouse_path:
             try:
                 print(f"Cloning mouse from {mouse_path}")
-                local_mouse = clone_device(mouse_path)
+                local_mouse = clone_device(mouse_path, is_mouse=True)
             except Exception as ex:
                 print(f"[!] Mouse clone failed ({mouse_path}): {ex}")
                 print("No mouse found – using fallback.")

@@ -356,14 +356,13 @@ def get_fuse_inventory():
         print("scrolling down")
         gui.scroll(-2)
         time.sleep(0.3)
-        if abs(700 - get_scrolly_position()) < 5:
-            break
-
+        
         frame = screenshot(region=REG["fuse_shelf"])
         # cv2.imwrite(f"data/fuse_shelf/{time.time()}.png", frame)  # DEBUG
         frames.append(frame)
 
-        if scroll_count > 134: # quiz: what assumption leads to this number?
+        if abs(700 - get_scrolly_position()) < 5 or scroll_count > 133:
+            # don't expect more than 1000 items: 134 * 1.5 * 5 plus account for 0.5 top padding
             break
         scroll_count += 1
 

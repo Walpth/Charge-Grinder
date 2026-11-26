@@ -74,14 +74,20 @@ def event():
                 prob: now.button(prob, "probs")
                 for prob in PROBS
             }
+            print("initial matches:", matches)
+
             if any(matches.values()):
                 for prob in PROBS:
                     if not now_click.button(prob, "probs"):
+                        print(f"no {prob} match")
                         continue
                     
                     if click.button("Commence"):
+                        print(f"confirmed {prob}")
                         time.sleep(2)
                         break
+            else:
+                print("no actual matches though?")
         
         if now_click.button("Continue"):
             connection()
